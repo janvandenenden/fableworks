@@ -74,39 +74,26 @@ export function CharacterForm() {
     const key = `uploads/${userId}/${characterId}/original.${extension}`;
 
     try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("key", key);
+
       const response = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key,
-          contentType: file.type || "application/octet-stream",
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get upload URL");
+        throw new Error("Upload failed");
       }
 
       const data = (await response.json()) as {
         success: boolean;
-        url?: string;
         publicUrl?: string;
       };
 
-      if (!data.success || !data.url || !data.publicUrl) {
+      if (!data.success || !data.publicUrl) {
         throw new Error("Invalid upload response");
-      }
-
-      const upload = await fetch(data.url, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
-      });
-
-      if (!upload.ok) {
-        throw new Error("Upload failed");
       }
 
       setSourceImageUrl(data.publicUrl);
