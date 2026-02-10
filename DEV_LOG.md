@@ -87,3 +87,17 @@
 ### Next Steps
 - Add R2 helper functions and Inngest scaffolding.
 - Build admin character UI (list + detail) and server actions.
+
+---
+
+## 2026-02-10 -- Phase 2: R2 helpers + prompts + Inngest scaffolding (intent)
+
+### Intent
+- Expand `src/lib/r2.ts` helpers and tests.
+- Add character prompt builder and tests.
+- Add Inngest client + function stubs for character generation.
+
+### Actions
+- Added character prompt builder with style presets (`src/lib/prompts/character.ts`) and tests.
+- Added Inngest client (`src/inngest/client.ts`), persist-replicate-output function, and function registry.
+- Added Inngest Next.js route handler (`src/app/api/inngest/route.ts`).
