@@ -9,6 +9,8 @@ type ActionResult<T> =
   | { success: false; error: string };
 
 const createCharacterSchema = z.object({
+  id: z.string().uuid().optional(),
+  userId: z.string().optional(),
   name: z.string().min(1, "Name is required"),
   gender: z.string().min(1, "Gender is required"),
   stylePreset: z.string().optional(),
@@ -20,16 +22,19 @@ export async function createCharacterAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const parsed = createCharacterSchema.parse({
+      id: formData.get("id"),
+      userId: formData.get("userId"),
       name: formData.get("name"),
       gender: formData.get("gender"),
       stylePreset: formData.get("stylePreset"),
       sourceImageUrl: formData.get("sourceImageUrl"),
     });
 
-    const id = crypto.randomUUID();
+    const id = parsed.id ?? crypto.randomUUID();
 
     await db.insert(schema.characters).values({
       id,
+      userId: parsed.userId ?? null,
       name: parsed.name,
       gender: parsed.gender,
       stylePreset: parsed.stylePreset ?? null,

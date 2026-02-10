@@ -37,7 +37,7 @@ function getBucketName(): string {
   return bucket;
 }
 
-function getPublicUrl(): string {
+export function getPublicBaseUrl(): string {
   const url = process.env.R2_PUBLIC_URL;
   if (!url) {
     throw new Error("R2_PUBLIC_URL environment variable is not set");
@@ -62,7 +62,7 @@ export async function uploadToR2(
     })
   );
 
-  return `${getPublicUrl()}/${key}`;
+  return `${getPublicBaseUrl()}/${key}`;
 }
 
 export async function getPresignedUploadUrl(

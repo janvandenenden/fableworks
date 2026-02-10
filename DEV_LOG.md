@@ -105,3 +105,4 @@
 - Added admin characters list + detail pages and server action to create characters and fire generation events.
 - Added upload API route that returns presigned R2 upload URLs.
 - Added initial unit test for `generate-character` Inngest function with mocked dependencies.
+- Updated character form to upload a child photo to R2 and store the public URL using `{userId}/{characterId}` key structure.
