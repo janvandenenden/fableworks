@@ -46,13 +46,15 @@ Platform where parents create personalized children's books. A child becomes the
 All server actions and API helpers return a result object:
 
 ```typescript
-type ActionResult<T> = {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: string;
-};
+type ActionResult<T> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: string;
+    };
 ```
 
 Never throw from server actions. Catch internally and return `{ success: false, error: "..." }`. On the client, check `result.success` and show toast on failure.
@@ -205,19 +207,21 @@ npm run test:e2e           # Run Playwright
 
 - `public/outline.png` — Character outline template used as structural reference in storyboard generation (added by user)
 
-## Action Log
+## Action Log Discipline
+
+**Before starting any task, read the latest `DEV_LOG.md` entry.** It is the single source of truth for current status, open problems, and decisions. Do not begin work until you've checked it.
 
 **All actions, decisions, and problems must be logged in `DEV_LOG.md`** at the project root.
 
-- Before starting work on a phase or task, add a dated entry
+- Before starting work on a phase or task, add a dated entry stub describing intent
 - Log what was done, what files were created/modified, and any problems encountered
 - If a problem was solved, log the root cause and the fix
 - If a problem is unresolved, mark it clearly so it can be picked up later
 - Keep entries concise but specific -- future you (or another developer) should be able to understand what happened and why
 
-## Phase Tracking
+**Per-phase planning guardrail:** Before starting any phase, check for a dedicated plan file (e.g., `PHASE2_PLAN.md`). If it’s missing, pause, prompt the user to generate one (plan mode), and commit that plan before implementation work begins.
 
-This file is updated after each implementation phase. Current status:
+## Phase Tracking
 
 - [x] Phase 1: Project Setup
 - [ ] Phase 2: Database + Character Generation
@@ -226,5 +230,3 @@ This file is updated after each implementation phase. Current status:
 - [ ] Phase 5: Storyboard Generation
 - [ ] Phase 6: Final Page Generation
 - [ ] Phase 7: Output, Purchase & Delivery
-
-See `PLAN.md` for full implementation details per phase.
