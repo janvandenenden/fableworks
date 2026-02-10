@@ -101,3 +101,4 @@
 - Added character prompt builder with style presets (`src/lib/prompts/character.ts`) and tests.
 - Added Inngest client (`src/inngest/client.ts`), persist-replicate-output function, and function registry.
 - Added Inngest Next.js route handler (`src/app/api/inngest/route.ts`).
+- Added `generate-character` Inngest function to run vision, store profile, generate art via Replicate, persist image, and update status.
