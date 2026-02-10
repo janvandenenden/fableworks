@@ -104,3 +104,4 @@
 - Added `generate-character` Inngest function to run vision, store profile, generate art via Replicate, persist image, and update status.
 - Added admin characters list + detail pages and server action to create characters and fire generation events.
 - Added upload API route that returns presigned R2 upload URLs.
+- Added initial unit test for `generate-character` Inngest function with mocked dependencies.
