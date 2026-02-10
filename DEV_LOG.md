@@ -1,0 +1,73 @@
+# Fableworks Development Log
+
+## 2026-02-10 -- Project Initialization
+
+### Actions
+- Created project directory `personalized-books/`
+- Wrote `PLAN.md` with full 7-phase implementation plan
+- Wrote `CLAUDE.md` with project conventions, testing strategy, bug fixing protocol
+- Initialized git repo, pushed to `github.com/janvandenenden/fableworks`
+
+### Decisions
+- **Testing:** Vitest (unit/component + screenshot debugging) + Playwright (E2E)
+- **TypeScript:** Moderate strictness -- strict null checks, `as` casts allowed at library boundaries
+- **Error handling:** Success/error result objects from server actions (no throwing)
+- **Replicate models:** NanoBanana for character gen + final pages, NanoBanana Pro for storyboard sketches
+
+### Problems
+- None so far
+
+---
+
+## 2026-02-10 -- Phase 1: Project Setup
+
+### Actions
+- Initialized Next.js 15 project with App Router, TypeScript, Tailwind CSS
+- Installed all core dependencies: openai, replicate, drizzle-orm, inngest, zustand, @aws-sdk/client-s3, stripe, @clerk/nextjs
+- Installed dev dependencies: vitest, @vitejs/plugin-react, @testing-library/react, @testing-library/jest-dom, @playwright/test, happy-dom, drizzle-kit
+- Initialized shadcn/ui (Tailwind v4), added 16 components: button, card, input, select, textarea, dialog, tabs, badge, skeleton, progress, label, separator, scroll-area, dropdown-menu, sheet, sonner
+- Created `.env.local` with all placeholder env vars
+- Created `.env.test` with test-specific dummy values
+- Created API client wrappers: `src/lib/openai.ts`, `src/lib/replicate.ts`, `src/lib/r2.ts`
+- Created root layout with conditional ClerkProvider (skips when no key set)
+- Created landing page at `src/app/page.tsx`
+- Created admin layout with sidebar navigation at `src/app/admin/layout.tsx`
+- Created admin dashboard placeholder at `src/app/admin/page.tsx`
+- Created admin playground at `src/app/admin/playground/page.tsx` with model selector (OpenAI Text/Vision/Replicate), prompt input, and result display
+- Created playground server actions at `src/app/admin/playground/actions.ts`
+- Created middleware with conditional Clerk auth (noop when no key)
+- Set up Vitest with happy-dom, React plugin, path aliases
+- Set up Playwright config for E2E tests
+- Created test infrastructure: setup file, mock files (openai, replicate, r2, inngest), fixture directories
+- Wrote 23 unit tests across 3 test files (openai, replicate, r2)
+- Created E2E test for admin playground
+- Updated package.json with test scripts (test, test:watch, test:coverage, test:e2e)
+- Updated .gitignore for test artifacts, env files, and local DB files
+
+### Files Created
+- `src/app/layout.tsx`, `src/app/page.tsx`
+- `src/app/admin/layout.tsx`, `src/app/admin/page.tsx`
+- `src/app/admin/playground/page.tsx`, `src/app/admin/playground/actions.ts`
+- `src/lib/openai.ts`, `src/lib/replicate.ts`, `src/lib/r2.ts`
+- `src/middleware.ts`
+- `vitest.config.ts`, `playwright.config.ts`
+- `src/test/setup.ts`
+- `src/test/mocks/openai.ts`, `src/test/mocks/replicate.ts`, `src/test/mocks/r2.ts`, `src/test/mocks/inngest.ts`
+- `src/lib/__tests__/openai.test.ts`, `src/lib/__tests__/replicate.test.ts`, `src/lib/__tests__/r2.test.ts`
+- `e2e/admin-playground.spec.ts`
+- `.env.local`, `.env.test`
+- 16 shadcn/ui component files in `src/components/ui/`
+
+### Problems & Resolutions
+1. **jsdom ESM incompatibility:** `jsdom` (via `@asamuzakjp/css-color`) failed to load ESM modules with `require()`. Switched to `happy-dom` as the Vitest test environment -- resolved.
+2. **Mock constructors:** `vi.mock()` with arrow function factories produced objects that weren't constructable via `new`. Fixed by using `class` syntax in mock factories instead of arrow functions.
+3. **Clerk missing publishable key:** `ClerkProvider` threw during static build without a key. Made ClerkProvider conditional -- wraps children only when `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is set. Same pattern for middleware.
+4. **Vitest config type error in Next.js build:** `environmentMatchGlobs` doesn't exist in Vitest 4 types. Removed it and excluded `vitest.config.ts` from Next.js TypeScript checking via `tsconfig.json`.
+5. **shadcn toast deprecated:** `toast` component is deprecated in latest shadcn, replaced with `sonner`.
+
+### Verification
+- All 23 unit tests pass
+- Next.js build succeeds (4 static pages generated)
+- Admin playground page renders with model selector, prompt input, generate button
+
+---
