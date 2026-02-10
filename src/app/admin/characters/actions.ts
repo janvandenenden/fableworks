@@ -31,10 +31,12 @@ export async function createCharacterAction(
     });
 
     const id = parsed.id ?? crypto.randomUUID();
+    const normalizedUserId =
+      parsed.userId && parsed.userId !== "anonymous" ? parsed.userId : null;
 
     await db.insert(schema.characters).values({
       id,
-      userId: parsed.userId ?? null,
+      userId: normalizedUserId,
       name: parsed.name,
       gender: parsed.gender,
       stylePreset: parsed.stylePreset ?? null,
