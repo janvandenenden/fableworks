@@ -6,6 +6,10 @@ const uploadRequestSchema = z.object({
   key: z.string().min(1),
 });
 
+function errorResponse(message: string, status = 400) {
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
 export async function POST(request: Request) {
   try {
     const contentType = request.headers.get("content-type") ?? "";
@@ -21,11 +25,11 @@ export async function POST(request: Request) {
     const file = formData.get("file");
     const key = formData.get("key");
 
-    if (!(file instanceof File) || typeof key !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Invalid upload payload" },
-        { status: 400 }
-      );
+    if (!(file instanceof Blob)) {
+      return errorResponse("Missing file payload");
+    }
+    if (typeof key !== "string" || key.length === 0) {
+      return errorResponse("Missing upload key");
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -37,9 +41,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, publicUrl });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: "Invalid upload request" },
-      { status: 400 }
-    );
+    const message =
+      error instanceof Error ? error.message : "Invalid upload request";
+    return errorResponse(message);
   }
 }

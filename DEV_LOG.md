@@ -107,3 +107,4 @@
 - Added initial unit test for `generate-character` Inngest function with mocked dependencies.
 - Updated character form to upload a child photo to R2 and store the public URL using `{userId}/{characterId}` key structure.
 - Switched upload flow to send file through `/api/upload` (server-side upload) to avoid browser CORS issues with presigned URLs.
+- Improved upload route error reporting and blob handling to diagnose form-data issues.
