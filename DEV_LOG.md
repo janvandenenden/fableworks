@@ -71,3 +71,19 @@
 - Admin playground page renders with model selector, prompt input, generate button
 
 ---
+
+## 2026-02-10 -- Phase 2: DB setup kickoff
+
+### Actions
+- Created Phase 2 detailed plan (`PHASE2_PLAN.md`) and updated CLAUDE guardrails to require per-phase plans before implementation.
+- Added Drizzle schema for all core tables (`src/db/schema.ts`) and sqlite connector (`src/db/index.ts`).
+- Added Drizzle config (`drizzle.config.ts`) targeting local SQLite.
+- Installed `better-sqlite3` dependency (Node 18 emits engine warnings but install succeeded).
+- Generated initial migration (`drizzle/0000_elite_rumiko_fujikawa.sql`) and applied it to `local.db` via `npx drizzle-kit generate && npx drizzle-kit migrate`.
+
+### Problems & Resolutions
+1. **SQLite default UUID expression rejected:** Using `randomblob` in DEFAULT caused migration parse errors. Removed default UUID generation and require IDs to be supplied by the app. Regenerated migration and applied successfully.
+
+### Next Steps
+- Add R2 helper functions and Inngest scaffolding.
+- Build admin character UI (list + detail) and server actions.
