@@ -122,3 +122,4 @@
 - Persisted Replicate raw output snapshot to `prompt_artifacts.parameters` for debugging when no image URL is extracted.
 - Expanded Replicate URL extraction (handles `image` and string outputs) and mark prompts as running.
 - Added Replicate output handling for FileOutput/url()/href and ensured prompt failures are recorded if Replicate run throws.
+- Switched character generation to create and poll Replicate predictions until completed.

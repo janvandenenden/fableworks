@@ -4,7 +4,12 @@ import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { analyzeImage } from "@/lib/openai";
 import { buildCharacterPrompt } from "@/lib/prompts/character";
-import { MODELS, extractImageUrl, runPrediction } from "@/lib/replicate";
+import {
+  MODELS,
+  extractImageUrl,
+  createPrediction,
+  getReplicateClient,
+} from "@/lib/replicate";
 import { copyFromTempUrl } from "@/lib/r2";
 
 const characterCreatedSchema = z.object({
@@ -191,30 +196,46 @@ export const generateCharacter = inngest.createFunction(
         .where(eq(schema.promptArtifacts.id, promptId))
     );
 
-    let predictionOutput: unknown;
-    try {
-      predictionOutput = await step.run("replicate-generate", () =>
-        runPrediction(MODELS.nanoBanana, {
-          prompt,
-          image: payload.sourceImageUrl,
+    const prediction = await step.run("replicate-start", () =>
+      createPrediction(MODELS.nanoBanana, {
+        prompt,
+        image: payload.sourceImageUrl,
+      })
+    );
+
+    await step.run("record-prediction", () =>
+      db
+        .update(schema.promptArtifacts)
+        .set({
+          status: "running",
+          parameters: JSON.stringify({ predictionId: prediction.id }),
         })
+        .where(eq(schema.promptArtifacts.id, promptId))
+    );
+
+    const replicate = getReplicateClient();
+    let predictionOutput: unknown = null;
+    let predictionStatus = prediction.status;
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const result = await step.run(`replicate-poll-${attempt + 1}`, () =>
+        replicate.predictions.get(prediction.id)
       );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Replicate run failed";
-      await step.run("mark-prompt-failed", () =>
-        db
-          .update(schema.promptArtifacts)
-          .set({ status: "failed", errorMessage: message })
-          .where(eq(schema.promptArtifacts.id, promptId))
-      );
-      await step.run("mark-failed", () =>
-        db
-          .update(schema.characters)
-          .set({ status: "draft" })
-          .where(eq(schema.characters.id, payload.id))
-      );
-      throw error;
+      predictionStatus = result.status;
+      if (result.status === "succeeded") {
+        predictionOutput = result.output;
+        break;
+      }
+      if (result.status === "failed" || result.status === "canceled") {
+        throw new Error(
+          `Replicate prediction ${result.status}: ${result.error ?? "unknown"}`
+        );
+      }
+      await step.sleep(`replicate-wait-${attempt + 1}`, "5s");
+    }
+
+    if (!predictionOutput) {
+      throw new Error(`Replicate prediction still ${predictionStatus}`);
     }
 
     const outputSnapshot = (() => {
