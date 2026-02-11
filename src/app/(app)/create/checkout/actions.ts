@@ -1,13 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { getCheckoutPriceConfig, getStripeClient, getAppBaseUrl } from "@/lib/stripe";
 
 const checkoutPayloadSchema = z.object({
-  storyId: z.string().min(1),
-  characterLabel: z.string().optional().nullable(),
+  storyId: z.string().uuid(),
+  characterId: z.string().uuid().optional().nullable(),
 });
 
 async function getCurrentUserIdOrFallback(): Promise<string> {
@@ -28,7 +29,7 @@ function newId(): string {
 export async function createCheckoutSessionAction(formData: FormData): Promise<void> {
   const parsed = checkoutPayloadSchema.safeParse({
     storyId: formData.get("storyId"),
-    characterLabel: formData.get("characterLabel"),
+    characterId: formData.get("characterId"),
   });
 
   if (!parsed.success) {
@@ -40,6 +41,45 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
   const appBaseUrl = getAppBaseUrl();
   const orderId = newId();
 
+  const storyRows = await db
+    .select({
+      id: schema.stories.id,
+      userId: schema.stories.userId,
+      title: schema.stories.title,
+    })
+    .from(schema.stories)
+    .where(eq(schema.stories.id, parsed.data.storyId))
+    .limit(1);
+  const story = storyRows[0];
+  if (!story) {
+    throw new Error("Story not found");
+  }
+  if (story.userId && story.userId !== userId) {
+    throw new Error("Story does not belong to current user");
+  }
+
+  const characterId = parsed.data.characterId?.trim() || null;
+  let characterLabel = "";
+  if (characterId) {
+    const characterRows = await db
+      .select({
+        id: schema.characters.id,
+        userId: schema.characters.userId,
+        name: schema.characters.name,
+      })
+      .from(schema.characters)
+      .where(eq(schema.characters.id, characterId))
+      .limit(1);
+    const character = characterRows[0];
+    if (!character) {
+      throw new Error("Character not found");
+    }
+    if (character.userId && character.userId !== userId) {
+      throw new Error("Character does not belong to current user");
+    }
+    characterLabel = character.name;
+  }
+
   const priceConfig = getCheckoutPriceConfig();
   const amountCents =
     priceConfig.mode === "inline" ? priceConfig.amountCents : Number(process.env.BOOK_PRICE_CENTS ?? 2999);
@@ -48,6 +88,7 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
   await db.insert(schema.orders).values({
     id: orderId,
     userId,
+    storyId: parsed.data.storyId,
     paymentStatus: "pending",
     amountCents,
     currency,
@@ -69,16 +110,24 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
           },
         ];
 
+  const cancelUrl = new URL("/create/checkout", appBaseUrl);
+  cancelUrl.searchParams.set("canceled", "1");
+  cancelUrl.searchParams.set("storyId", parsed.data.storyId);
+  if (characterId) {
+    cancelUrl.searchParams.set("characterId", characterId);
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     success_url: `${appBaseUrl}/create/generating?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appBaseUrl}/create/checkout?canceled=1`,
+    cancel_url: cancelUrl.toString(),
     line_items: lineItems,
     metadata: {
       orderId,
       userId,
       storyId: parsed.data.storyId,
-      characterLabel: parsed.data.characterLabel?.trim() || "",
+      characterId: characterId ?? "",
+      characterLabel,
     },
   });
 

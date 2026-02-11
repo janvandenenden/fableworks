@@ -1,5 +1,34 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 8 implementation (slice 4: customer review-pay flow + ownership checks) [in progress]
+
+### Actions
+- Converted customer create flow to explicit selection handoff:
+  - `src/app/(app)/create/character/page.tsx`
+  - lists available characters and passes `characterId` into Step 2.
+  - `src/app/(app)/create/story/page.tsx`
+  - lists available stories and passes `storyId` + `characterId` into Step 3.
+- Refactored checkout step to review-only:
+  - `src/app/(app)/create/checkout/page.tsx`
+  - Step 3 now shows fixed review summary (story + character), not re-selection controls.
+  - Added credit policy snapshot card and cancel/retry handling.
+- Added checkout ownership and integrity checks:
+  - `src/app/(app)/create/checkout/actions.ts`
+  - validates `storyId`/`characterId` UUIDs,
+  - verifies story/character belong to current user,
+  - persists `orders.storyId`,
+  - stores `characterId` + derived `characterLabel` in Stripe metadata,
+  - preserves selected IDs in cancel URL.
+- Added read helper for customer credit display:
+  - `src/lib/credits.ts`
+  - `getUserCreditSnapshot(userId)`.
+- Updated Stripe webhook tests for paid-credit grant side effect:
+  - `src/app/api/webhooks/stripe/__tests__/route.test.ts`
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/credits.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/app/admin/characters/__tests__/character-actions.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 8 implementation (slice 3: starter credits + generation guards) [in progress]
 
 ### Actions

@@ -6,6 +6,7 @@ const updateSet = vi.fn(() => ({ where: updateWhere }));
 const update = vi.fn(() => ({ set: updateSet }));
 const insertValues = vi.fn(async () => undefined);
 const selectLimit = vi.fn(async () => []);
+const grantPaidRerollCreditsForOrder = vi.fn(async () => undefined);
 
 const select = vi.fn(() => ({
   from: vi.fn(() => ({
@@ -46,6 +47,10 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(() => ({})),
 }));
 
+vi.mock("@/lib/credits", () => ({
+  grantPaidRerollCreditsForOrder,
+}));
+
 describe("stripe webhook route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,7 +83,7 @@ describe("stripe webhook route", () => {
     });
 
     selectLimit
-      .mockResolvedValueOnce([{ id: "order-1" }])
+      .mockResolvedValueOnce([{ id: "order-1", userId: "user-1" }])
       .mockResolvedValueOnce([]);
 
     const { POST } = await import("@/app/api/webhooks/stripe/route");
@@ -107,6 +112,10 @@ describe("stripe webhook route", () => {
         printStatus: "pending_generation",
       })
     );
+    expect(grantPaidRerollCreditsForOrder).toHaveBeenCalledWith({
+      userId: "user-1",
+      orderId: "order-1",
+    });
   });
 
   it("marks checkout session as expired", async () => {

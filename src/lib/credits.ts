@@ -108,6 +108,19 @@ async function hasPaidOrder(userId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+export async function getUserCreditSnapshot(userId: string): Promise<{
+  starterCreditsCents: number;
+  paidCreditsCents: number;
+  hasPaidOrder: boolean;
+}> {
+  const row = await getUserCreditsRow(userId);
+  return {
+    starterCreditsCents: row?.starterCreditsCents ?? 0,
+    paidCreditsCents: row?.paidCreditsCents ?? 0,
+    hasPaidOrder: await hasPaidOrder(userId),
+  };
+}
+
 export type ConsumeGenerationCreditResult =
   | {
       success: true;
