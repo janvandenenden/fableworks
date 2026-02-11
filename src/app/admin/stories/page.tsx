@@ -48,6 +48,9 @@ export default async function StoriesPage() {
                     Age {story.ageRange ?? "n/a"}
                     {story.theme ? ` · ${story.theme}` : ""}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    Character: {story.characterId ? "linked" : "not linked"}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant="secondary">{story.status}</Badge>

@@ -77,6 +77,15 @@
 - Verified with targeted test:
   - `npm run test -- src/lib/prompts/__tests__/story.test.ts` (pass)
 
+### UX updates
+- Made story-to-character selection visible regardless of manuscript status:
+  - `src/app/admin/stories/[id]/page.tsx` now always renders `StoryEditor`.
+  - `src/components/admin/story-editor.tsx` now always shows manuscript generation button (generate/regenerate label based on state), while keeping linked character selector available at all times.
+- Added story list clarity:
+  - `src/app/admin/stories/page.tsx` now shows `Character: linked/not linked` for each story row.
+- Verified targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

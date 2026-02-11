@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import {
-  generateManuscriptAction,
   generateScenesAction,
   regenerateConceptAction,
 } from "@/app/admin/stories/actions";
@@ -210,34 +209,18 @@ export default async function StoryDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {hasManuscript ? (
-        <StoryEditor
-          story={{
-            id: story.id,
-            title: story.title ?? manuscriptData?.title ?? null,
-            storyArc: story.storyArc ?? manuscriptData?.arcSummary ?? null,
-            characterId: story.characterId ?? null,
-          }}
-          characters={characters}
-          selectedCharacterImageUrl={selectedCharacterImageUrl}
-          canRegenerateManuscript
-        />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Step 2: Manuscript Metadata</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">No manuscript metadata yet.</p>
-            <form action={generateManuscriptAction}>
-              <input type="hidden" name="storyId" value={id} />
-              <Button type="submit" disabled={!hasConcept}>
-                Generate Manuscript Metadata
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <StoryEditor
+        story={{
+          id: story.id,
+          title: story.title ?? manuscriptData?.title ?? null,
+          storyArc: story.storyArc ?? manuscriptData?.arcSummary ?? null,
+          characterId: story.characterId ?? null,
+        }}
+        characters={characters}
+        selectedCharacterImageUrl={selectedCharacterImageUrl}
+        canGenerateManuscript={hasConcept}
+        canRegenerateManuscript={hasManuscript}
+      />
 
       {!hasScenes ? (
         <Card>

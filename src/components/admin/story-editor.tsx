@@ -21,6 +21,7 @@ export function StoryEditor({
   story,
   characters,
   selectedCharacterImageUrl,
+  canGenerateManuscript,
   canRegenerateManuscript,
 }: {
   story: {
@@ -35,6 +36,7 @@ export function StoryEditor({
     status: string;
   }>;
   selectedCharacterImageUrl: string | null;
+  canGenerateManuscript: boolean;
   canRegenerateManuscript: boolean;
 }) {
   const router = useRouter();
@@ -118,14 +120,14 @@ export function StoryEditor({
           <Button onClick={handleMetaSave} disabled={isPending}>
             {isPending ? "Saving..." : "Save Title & Arc"}
           </Button>
-          {canRegenerateManuscript ? (
-            <form action={generateManuscriptAction}>
-              <input type="hidden" name="storyId" value={story.id} />
-              <Button type="submit" variant="outline">
-                Regenerate Manuscript Metadata
-              </Button>
-            </form>
-          ) : null}
+          <form action={generateManuscriptAction}>
+            <input type="hidden" name="storyId" value={story.id} />
+            <Button type="submit" variant="outline" disabled={!canGenerateManuscript}>
+              {canRegenerateManuscript
+                ? "Regenerate Manuscript Metadata"
+                : "Generate Manuscript Metadata"}
+            </Button>
+          </form>
         </div>
       </CardContent>
     </Card>
