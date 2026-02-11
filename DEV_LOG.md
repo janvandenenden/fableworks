@@ -170,6 +170,22 @@
   - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx` (pass)
   - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 8: final pages E2E coverage)
+
+### Actions
+- Added Playwright E2E spec:
+  - `e2e/final-pages.spec.ts`
+- The spec seeds `local.db` directly for deterministic setup and validates:
+  - final pages route loads for seeded story,
+  - bulk character selector interaction,
+  - per-scene `Character + Prompt` tab interaction,
+  - request preview contains both storyboard and character reference URLs.
+
+### Problems
+1. Could not execute Playwright in this environment:
+   - `next dev` fails because local Node is `18.16.0`, while Next.js 16 requires `>=20.9.0`.
+   - Error surfaced by Playwright `webServer` startup.
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions
