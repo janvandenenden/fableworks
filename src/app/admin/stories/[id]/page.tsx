@@ -1,23 +1,19 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { db, schema } from "@/db";
-import { buildStoryCoverPrompt, getOutlineReferenceUrl } from "@/lib/prompts/cover";
 import {
-  deleteStoryAction,
   generateManuscriptAction,
-  generateStoryCoverAction,
   generateScenesAction,
   regenerateConceptAction,
 } from "@/app/admin/stories/actions";
+import { StoryDeleteButton } from "@/components/admin/story-delete-button";
 import { StoryDetailAutoRefresh } from "@/components/admin/story-detail-auto-refresh";
 import { StoryEditor } from "@/components/admin/story-editor";
 import { StoryScenesEditor } from "@/components/admin/story-scenes-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -63,14 +59,6 @@ export default async function StoryDetailPage({ params }: Props) {
     })
     .from(schema.propsBibleEntries)
     .where(eq(schema.propsBibleEntries.storyId, id));
-  const coverAssets = await db
-    .select()
-    .from(schema.generatedAssets)
-    .where(eq(schema.generatedAssets.entityId, id))
-    .orderBy(desc(schema.generatedAssets.createdAt))
-    .limit(5);
-  const latestCover = coverAssets.find((asset) => asset.type === "story_cover") ?? null;
-
   const artifacts = await db
     .select()
     .from(schema.promptArtifacts)
@@ -127,20 +115,6 @@ export default async function StoryDetailPage({ params }: Props) {
     },
     {}
   );
-  const coverSceneSummary = scenes
-    .slice(0, 6)
-    .map((scene) => scene.sceneDescription ?? scene.spreadText ?? "")
-    .filter(Boolean)
-    .join(" | ");
-  const coverPropsSummary = propsBible.map((prop) => prop.title).slice(0, 8).join(", ");
-  const previewCoverPrompt = buildStoryCoverPrompt({
-    title: story.title,
-    storyArc: story.storyArc,
-    sceneSummary: coverSceneSummary,
-    propsSummary: coverPropsSummary,
-    outlineReferenceUrl: getOutlineReferenceUrl(),
-  });
-
   return (
     <div className="space-y-6">
       <div>
@@ -164,12 +138,18 @@ export default async function StoryDetailPage({ params }: Props) {
               Open Props Bible
             </Button>
           )}
-          <form action={deleteStoryAction}>
-            <input type="hidden" name="storyId" value={id} />
-            <Button type="submit" variant="destructive">
-              Delete Story
+          {hasScenes ? (
+            <Button asChild variant="outline">
+              <Link href={`/admin/stories/${id}/storyboard`}>
+                Open Storyboard
+              </Link>
             </Button>
-          </form>
+          ) : (
+            <Button variant="outline" disabled>
+              Open Storyboard
+            </Button>
+          )}
+          <StoryDeleteButton storyId={id} />
         </div>
       </div>
 
@@ -246,50 +226,6 @@ export default async function StoryDetailPage({ params }: Props) {
 
       {hasScenes ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Draft Cover</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {latestCover ? (
-                <div className="relative h-[420px] w-[280px] overflow-hidden rounded-md border">
-                  <Image
-                    src={latestCover.storageUrl}
-                    alt="Story cover draft"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No cover generated yet.
-                </p>
-              )}
-              <form action={generateStoryCoverAction}>
-                <input type="hidden" name="storyId" value={id} />
-                <div className="mb-3 grid gap-1">
-                  <label
-                    htmlFor="coverPrompt"
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    Exact prompt sent to NanoBanana Pro
-                  </label>
-                  <Textarea
-                    id="coverPrompt"
-                    name="coverPrompt"
-                    defaultValue={previewCoverPrompt}
-                    rows={8}
-                    className="text-xs"
-                  />
-                </div>
-                <Button type="submit" variant={latestCover ? "outline" : "default"}>
-                  {latestCover ? "Regenerate Cover" : "Generate Cover"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
           <div>
             <h2 className="text-xl font-semibold">Step 3: Scenes</h2>
             <p className="text-sm text-muted-foreground">
