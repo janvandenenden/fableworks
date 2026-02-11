@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
 
 type ActionResult<T> =
-  | { success: true; data: T }
+  | { success: true; data: T; warning?: string }
   | { success: false; error: string };
 
 const createCharacterSchema = z.object({
@@ -44,16 +44,24 @@ export async function createCharacterAction(
       status: "draft",
     });
 
-    await inngest.send({
-      name: "character/created",
-      data: {
-        id,
-        sourceImageUrl: parsed.sourceImageUrl,
-        stylePreset: parsed.stylePreset ?? "storybook",
-      },
-    });
+    let warning: string | undefined;
+    try {
+      await inngest.send({
+        name: "character/created",
+        data: {
+          id,
+          sourceImageUrl: parsed.sourceImageUrl,
+          stylePreset: parsed.stylePreset ?? "storybook",
+        },
+      });
+    } catch (sendError) {
+      warning =
+        sendError instanceof Error
+          ? sendError.message
+          : "Failed to send Inngest event";
+    }
 
-    return { success: true, data: { id } };
+    return { success: true, data: { id }, warning };
   } catch (error) {
     const message =
       error instanceof z.ZodError

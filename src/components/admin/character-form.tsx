@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createCharacterAction } from "@/app/admin/characters/actions";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const genders = [
 ];
 
 export function CharacterForm() {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [isPending, startTransition] = useTransition();
   const stylePresets = getStylePresets();
@@ -57,6 +59,10 @@ export function CharacterForm() {
       }
 
       toast.success("Character created");
+      if (result.warning) {
+        toast.warning(`Generation not started: ${result.warning}`);
+      }
+      router.push(`/admin/characters/${result.data.id}`);
       formRef.current?.reset();
       setGender(genders[0]?.value ?? "female");
       setStylePreset(stylePresets[0]?.value ?? "watercolor");
