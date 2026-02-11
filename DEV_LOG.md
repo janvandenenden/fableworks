@@ -86,6 +86,31 @@
 - Verified targeted tests:
   - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 4: per-panel character override for final pages)
+
+### Actions
+- Added per-scene character override for final page generation:
+  - `src/components/admin/final-page-card.tsx`
+  - Each panel now has `Character for this generation` selector.
+  - You can render the same storyboard panel for different characters without changing the story link.
+- Extended final page actions to accept optional character override:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - `generateFinalPageAction`, `generateFinalPageFromRunAction`, and bulk path now support `characterId`.
+- Added run metadata for traceability:
+  - Prompt artifacts now persist `structuredFields.characterId/characterName`.
+  - Generated asset metadata now includes character context.
+- Extended final pages route data:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Supplies available characters + selected variant availability to each scene card.
+  - Prerequisite now checks for at least one selectable character variant.
+  - Added UI hint that each scene card can use different characters for testing.
+- Updated scene view types:
+  - `src/components/admin/final-pages-view.tsx`
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

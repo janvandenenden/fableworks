@@ -27,19 +27,22 @@ const storyIdSchema = z.object({
 const pageImageSchema = z.object({
   storyId: z.string().uuid(),
   sceneId: z.string().uuid(),
-  promptOverride: z.string().optional(),
+  promptOverride: z.string().optional().nullable(),
+  characterId: z.string().uuid().optional().nullable(),
 });
 
 const pageImageFromRunSchema = z.object({
   storyId: z.string().uuid(),
   sceneId: z.string().uuid(),
   runArtifactId: z.string().uuid(),
+  characterId: z.string().uuid().optional().nullable(),
 });
 
 const pagePromptDraftSchema = z.object({
   storyId: z.string().uuid(),
   sceneId: z.string().uuid(),
   promptOverride: z.string().min(1, "Prompt cannot be empty"),
+  characterId: z.string().uuid().optional().nullable(),
 });
 
 const approveFinalPageSchema = z.object({
@@ -102,6 +105,7 @@ function parseRequestPayload(
 async function buildFinalPageGenerationContext(input: {
   storyId: string;
   sceneId: string;
+  characterIdOverride?: string | null;
 }) {
   const storyRows = await db
     .select()
@@ -112,19 +116,23 @@ async function buildFinalPageGenerationContext(input: {
   if (!story) {
     return { success: false as const, error: "Story not found" };
   }
-  if (!story.characterId) {
+  const activeCharacterId = input.characterIdOverride ?? story.characterId;
+  if (!activeCharacterId) {
     return {
       success: false as const,
-      error: "Story has no linked character. Link a character before generating pages.",
+      error:
+        "No character provided. Link a character to the story or select one in Final Pages.",
     };
   }
 
   const characterRows = await db
     .select({
+      id: schema.characters.id,
       stylePreset: schema.characters.stylePreset,
+      name: schema.characters.name,
     })
     .from(schema.characters)
-    .where(eq(schema.characters.id, story.characterId))
+    .where(eq(schema.characters.id, activeCharacterId))
     .limit(1);
   const character = characterRows[0];
   if (!character) {
@@ -167,7 +175,7 @@ async function buildFinalPageGenerationContext(input: {
     .from(schema.characterImages)
     .where(
       and(
-        eq(schema.characterImages.characterId, story.characterId),
+        eq(schema.characterImages.characterId, activeCharacterId),
         eq(schema.characterImages.isSelected, true)
       )
     )
@@ -197,7 +205,7 @@ async function buildFinalPageGenerationContext(input: {
       doNotChange: schema.characterProfiles.doNotChange,
     })
     .from(schema.characterProfiles)
-    .where(eq(schema.characterProfiles.characterId, story.characterId))
+    .where(eq(schema.characterProfiles.characterId, activeCharacterId))
     .limit(1);
   const profile = profileRows[0];
   if (!profile) {
@@ -252,6 +260,8 @@ async function buildFinalPageGenerationContext(input: {
       colorPalette,
       doNotChange,
       stylePreset: character.stylePreset,
+      characterId: character.id,
+      characterName: character.name,
       characterProfileSummary: profileSummary,
     },
   };
@@ -261,11 +271,13 @@ async function generateSingleFinalPage(input: {
   storyId: string;
   sceneId: string;
   promptOverride?: string | null;
+  characterIdOverride?: string | null;
   requestPayloadOverride?: z.infer<typeof finalPageRequestPayloadSchema> | null;
 }): Promise<ActionResult<{ id: string }>> {
   const contextResult = await buildFinalPageGenerationContext({
     storyId: input.storyId,
     sceneId: input.sceneId,
+    characterIdOverride: input.characterIdOverride,
   });
   if (!contextResult.success) {
     return { success: false, error: contextResult.error };
@@ -308,6 +320,10 @@ async function generateSingleFinalPage(input: {
     rawPrompt: requestPayload.prompt,
     model: MODELS.nanoBanana,
     parameters: requestPayload,
+    structuredFields: JSON.stringify({
+      characterId: contextResult.data.characterId,
+      characterName: contextResult.data.characterName,
+    }),
     status: "running",
     createdAt: new Date(),
   });
@@ -373,7 +389,13 @@ async function generateSingleFinalPage(input: {
       entityId: finalPageId,
       storageUrl,
       mimeType: "image/png",
-      metadata: JSON.stringify({ promptId, sceneId: scene.id, version: nextVersion }),
+      metadata: JSON.stringify({
+        promptId,
+        sceneId: scene.id,
+        version: nextVersion,
+        characterId: contextResult.data.characterId,
+        characterName: contextResult.data.characterName,
+      }),
     });
 
     await db
@@ -407,11 +429,13 @@ export async function generateFinalPageAction(
     storyId: formData.get("storyId"),
     sceneId: formData.get("sceneId"),
     promptOverride: formData.get("promptOverride"),
+    characterId: formData.get("characterId"),
   });
   const result = await generateSingleFinalPage({
     storyId: payload.storyId,
     sceneId: payload.sceneId,
     promptOverride: payload.promptOverride ?? null,
+    characterIdOverride: payload.characterId ?? null,
   });
   revalidatePath(`/admin/stories/${payload.storyId}/pages`);
   revalidatePath(`/admin/stories/${payload.storyId}`);
@@ -425,6 +449,7 @@ export async function generateFinalPageFromRunAction(
     storyId: formData.get("storyId"),
     sceneId: formData.get("sceneId"),
     runArtifactId: formData.get("runArtifactId"),
+    characterId: formData.get("characterId"),
   });
 
   const artifactRows = await db
@@ -449,6 +474,7 @@ export async function generateFinalPageFromRunAction(
   const result = await generateSingleFinalPage({
     storyId: payload.storyId,
     sceneId: payload.sceneId,
+    characterIdOverride: payload.characterId ?? null,
     requestPayloadOverride: parsedPayload,
   });
   revalidatePath(`/admin/stories/${payload.storyId}/pages`);
@@ -463,6 +489,7 @@ export async function saveFinalPagePromptDraftAction(
     storyId: formData.get("storyId"),
     sceneId: formData.get("sceneId"),
     promptOverride: formData.get("promptOverride"),
+    characterId: formData.get("characterId"),
   });
 
   const panelRows = await db
@@ -487,6 +514,9 @@ export async function saveFinalPagePromptDraftAction(
     rawPrompt: payload.promptOverride.trim(),
     model: MODELS.nanoBanana,
     parameters: requestPayload,
+    structuredFields: payload.characterId
+      ? JSON.stringify({ characterId: payload.characterId })
+      : null,
     status: "success",
     createdAt: new Date(),
   });
@@ -536,6 +566,11 @@ export async function generateFinalPagesAction(
   const payload = storyIdSchema.parse({
     storyId: formData.get("storyId"),
   });
+  const characterIdOverrideRaw = formData.get("characterId");
+  const characterIdOverride =
+    typeof characterIdOverrideRaw === "string" && characterIdOverrideRaw.trim().length > 0
+      ? characterIdOverrideRaw
+      : null;
 
   const storyRows = await db
     .select()
@@ -601,6 +636,7 @@ export async function generateFinalPagesAction(
     const result = await generateSingleFinalPage({
       storyId: payload.storyId,
       sceneId,
+      characterIdOverride,
     });
     if (!result.success) {
       await db

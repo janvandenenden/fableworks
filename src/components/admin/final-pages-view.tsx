@@ -16,10 +16,19 @@ export type FinalPageSceneData = {
     status: string | null;
     errorMessage: string | null;
     rawPrompt: string;
+    characterName: string | null;
     parameters: string | null;
     resultUrl: string | null;
     createdAt: string | null;
   }>;
+  availableCharacters: Array<{
+    id: string;
+    name: string;
+    status: string;
+    hasSelectedVariant: boolean;
+  }>;
+  defaultCharacterId: string | null;
+  hasStoryLinkedCharacter: boolean;
   versions: Array<{
     id: string;
     version: number;

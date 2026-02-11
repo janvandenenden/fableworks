@@ -154,6 +154,7 @@ export default async function FinalPagesPage({
             resultUrl: schema.promptArtifacts.resultUrl,
             createdAt: schema.promptArtifacts.createdAt,
             entityType: schema.promptArtifacts.entityType,
+            structuredFields: schema.promptArtifacts.structuredFields,
           })
           .from(schema.promptArtifacts)
           .where(
@@ -174,6 +175,7 @@ export default async function FinalPagesPage({
       status: string | null;
       errorMessage: string | null;
       rawPrompt: string;
+      structuredFields: string | null;
       parameters: unknown;
       resultUrl: string | null;
       createdAt: Date | string | null;
@@ -189,6 +191,8 @@ export default async function FinalPagesPage({
         status: artifact.status,
         errorMessage: artifact.errorMessage,
         rawPrompt: artifact.rawPrompt,
+        structuredFields:
+          typeof artifact.structuredFields === "string" ? artifact.structuredFields : null,
         parameters: artifact.parameters,
         resultUrl: artifact.resultUrl,
         createdAt: artifact.createdAt,
@@ -223,6 +227,30 @@ export default async function FinalPagesPage({
           .limit(1)
       : [];
   const selectedCharacterImageUrl = selectedImageRows[0]?.imageUrl ?? null;
+  const allCharacters = await db
+    .select({
+      id: schema.characters.id,
+      name: schema.characters.name,
+      status: schema.characters.status,
+    })
+    .from(schema.characters)
+    .orderBy(asc(schema.characters.name));
+  const selectedCharacterVariants = await db
+    .select({
+      characterId: schema.characterImages.characterId,
+      imageUrl: schema.characterImages.imageUrl,
+    })
+    .from(schema.characterImages)
+    .where(eq(schema.characterImages.isSelected, true));
+  const selectedVariantByCharacterId = new Map(
+    selectedCharacterVariants.map((row) => [row.characterId, row.imageUrl])
+  );
+  const availableCharacters = allCharacters.map((character) => ({
+    id: character.id,
+    name: character.name,
+    status: character.status,
+    hasSelectedVariant: selectedVariantByCharacterId.has(character.id),
+  }));
   const characterRows =
     story.characterId
       ? await db
@@ -298,6 +326,15 @@ export default async function FinalPagesPage({
         status: run.status ?? null,
         errorMessage: run.errorMessage ?? null,
         rawPrompt: run.rawPrompt,
+        characterName: (() => {
+          if (!run.structuredFields || typeof run.structuredFields !== "string") return null;
+          try {
+            const parsed = JSON.parse(run.structuredFields) as { characterName?: unknown };
+            return typeof parsed.characterName === "string" ? parsed.characterName : null;
+          } catch {
+            return null;
+          }
+        })(),
         parameters: (() => {
           if (!run.parameters) return null;
           if (typeof run.parameters === "string") return run.parameters;
@@ -311,6 +348,14 @@ export default async function FinalPagesPage({
         createdAt: toSafeIsoString(run.createdAt),
       }));
 
+    const defaultCharacterId = (() => {
+      if (story.characterId && selectedVariantByCharacterId.has(story.characterId)) {
+        return story.characterId;
+      }
+      const fallback = availableCharacters.find((character) => character.hasSelectedVariant);
+      return fallback?.id ?? null;
+    })();
+
     return {
       storyId: id,
       sceneId: scene.id,
@@ -323,6 +368,9 @@ export default async function FinalPagesPage({
       latestApproved: Boolean(latestVersion?.isApproved),
       promptPreview: draftPrompt || generatedPrompt,
       runHistory,
+      availableCharacters,
+      defaultCharacterId,
+      hasStoryLinkedCharacter: Boolean(story.characterId),
       versions: versions.map((page) => ({
         id: page.id,
         version: page.version ?? 1,
@@ -334,8 +382,9 @@ export default async function FinalPagesPage({
 
   const missingScenes = scenes.length === 0;
   const missingStoryboard = sceneViewData.some((scene) => !scene.storyboardImageUrl);
-  const missingCharacterLink = !story.characterId;
-  const missingSelectedCharacter = !selectedCharacterImageUrl;
+  const hasAnySelectableCharacter = availableCharacters.some(
+    (character) => character.hasSelectedVariant
+  );
 
   return (
     <div className="space-y-6">
@@ -346,7 +395,7 @@ export default async function FinalPagesPage({
         </p>
       </div>
 
-      {(missingScenes || missingStoryboard || missingCharacterLink || missingSelectedCharacter) ? (
+      {(missingScenes || missingStoryboard || !hasAnySelectableCharacter) ? (
         <Card>
           <CardHeader>
             <CardTitle>Prerequisites</CardTitle>
@@ -354,8 +403,9 @@ export default async function FinalPagesPage({
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {missingScenes ? <p>- Generate scenes first.</p> : null}
             {missingStoryboard ? <p>- Generate all storyboard panel images first.</p> : null}
-            {missingCharacterLink ? <p>- Link this story to a character first.</p> : null}
-            {missingSelectedCharacter ? <p>- Select a character image variant first.</p> : null}
+            {!hasAnySelectableCharacter ? (
+              <p>- Select at least one character image variant first.</p>
+            ) : null}
             <div className="flex gap-2">
               <Button asChild variant="outline" size="sm">
                 <Link href={`/admin/stories/${id}`}>Back to Story</Link>
@@ -374,6 +424,7 @@ export default async function FinalPagesPage({
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Generate missing pages in bulk, then review and regenerate per scene.
+              Each scene card lets you choose a different character for testing.
             </p>
             <form action={generateFinalPagesAction}>
               <input type="hidden" name="storyId" value={id} />

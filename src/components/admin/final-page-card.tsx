@@ -23,6 +23,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 function formatTimestamp(value: string | null): string {
@@ -43,19 +50,31 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
   const [isReusingRunId, setIsReusingRunId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState(scene.promptPreview);
   const [savedPromptBase, setSavedPromptBase] = useState(scene.promptPreview);
+  const [characterId, setCharacterId] = useState(scene.defaultCharacterId ?? "__none");
 
   useEffect(() => {
     setPrompt(scene.promptPreview);
     setSavedPromptBase(scene.promptPreview);
   }, [scene.promptPreview]);
+  useEffect(() => {
+    setCharacterId(scene.defaultCharacterId ?? "__none");
+  }, [scene.defaultCharacterId]);
 
   const hasUnsavedPrompt = prompt !== savedPromptBase;
+  const selectedCharacter = scene.availableCharacters.find(
+    (candidate) => candidate.id === characterId
+  );
+  const canGenerateWithSelectedCharacter =
+    characterId === "__none"
+      ? scene.hasStoryLinkedCharacter
+      : Boolean(selectedCharacter?.hasSelectedVariant);
 
   const requestPreview = useMemo(
     () =>
       JSON.stringify(
         {
           prompt,
+          character_id: characterId === "__none" ? null : characterId,
           image: scene.storyboardImageUrl,
           aspect_ratio: "4:3",
           output_format: "png",
@@ -63,7 +82,7 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
         null,
         2
       ),
-    [prompt, scene.storyboardImageUrl]
+    [characterId, prompt, scene.storyboardImageUrl]
   );
 
   function generatePage() {
@@ -71,7 +90,12 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
       const formData = new FormData();
       formData.set("storyId", scene.storyId);
       formData.set("sceneId", scene.sceneId);
-      formData.set("promptOverride", prompt);
+      if (characterId !== "__none") {
+        formData.set("characterId", characterId);
+      }
+      if (hasUnsavedPrompt) {
+        formData.set("promptOverride", prompt);
+      }
       const result = await generateFinalPageAction(formData);
       if (!result.success) {
         toast.error(result.error);
@@ -89,6 +113,9 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
       formData.set("storyId", scene.storyId);
       formData.set("sceneId", scene.sceneId);
       formData.set("promptOverride", prompt);
+      if (characterId !== "__none") {
+        formData.set("characterId", characterId);
+      }
       const result = await saveFinalPagePromptDraftAction(formData);
       if (!result.success) {
         toast.error(result.error);
@@ -107,6 +134,9 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
       formData.set("storyId", scene.storyId);
       formData.set("sceneId", scene.sceneId);
       formData.set("runArtifactId", runArtifactId);
+      if (characterId !== "__none") {
+        formData.set("characterId", characterId);
+      }
       const result = await generateFinalPageFromRunAction(formData);
       setIsReusingRunId(null);
       if (!result.success) {
@@ -180,7 +210,7 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[60vh] space-y-2 overflow-auto">
-                  {scene.runHistory.length === 0 ? (
+              {scene.runHistory.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No previous runs yet.</p>
                   ) : (
                     scene.runHistory.map((run) => (
@@ -188,6 +218,9 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
                         <p className="text-muted-foreground">
                           {run.status ?? "unknown"} · {formatTimestamp(run.createdAt)}
                         </p>
+                        {run.characterName ? (
+                          <p className="text-muted-foreground">character: {run.characterName}</p>
+                        ) : null}
                         {run.errorMessage ? (
                           <p className="text-destructive">error: {run.errorMessage}</p>
                         ) : null}
@@ -241,7 +274,7 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
               variant={scene.latestImageUrl ? "outline" : "default"}
               size="sm"
               onClick={generatePage}
-              disabled={isGenerating || isSavingPrompt}
+              disabled={isGenerating || isSavingPrompt || !canGenerateWithSelectedCharacter}
             >
               {isGenerating ? (
                 <>
@@ -305,6 +338,33 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
         </div>
 
         <div className="grid gap-1">
+          <Label htmlFor={`final-page-character-${scene.sceneId}`}>Character for this generation</Label>
+          <Select value={characterId} onValueChange={setCharacterId}>
+            <SelectTrigger id={`final-page-character-${scene.sceneId}`} className="w-full">
+              <SelectValue placeholder="Select character" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">Use story linked character</SelectItem>
+              {scene.availableCharacters.map((character) => (
+                <SelectItem key={character.id} value={character.id}>
+                  {character.name}
+                  {character.hasSelectedVariant ? "" : " (no selected image)"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {characterId !== "__none" && selectedCharacter?.hasSelectedVariant === false ? (
+            <p className="text-xs text-amber-600">
+              Selected character has no selected variant. Choose a variant on the character page.
+            </p>
+          ) : characterId === "__none" && !scene.hasStoryLinkedCharacter ? (
+            <p className="text-xs text-amber-600">
+              No character is linked to this story. Pick a character above to generate this page.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid gap-1">
           <Label htmlFor={`final-page-prompt-${scene.sceneId}`}>Exact prompt sent to NanoBanana</Label>
           <Textarea
             id={`final-page-prompt-${scene.sceneId}`}
@@ -322,7 +382,12 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
           type="button"
           variant={hasUnsavedPrompt ? "default" : "secondary"}
           onClick={savePromptDraft}
-          disabled={isSavingPrompt || isGenerating || !hasUnsavedPrompt}
+          disabled={
+            isSavingPrompt ||
+            isGenerating ||
+            !hasUnsavedPrompt ||
+            !canGenerateWithSelectedCharacter
+          }
         >
           {isSavingPrompt ? (
             <>
