@@ -35,6 +35,7 @@
     - no longer assumes immediate redirect; opens the created character via first visible `View` action.
   - `e2e/final-pages.spec.ts`
     - resolves strict-mode conflict by scoping duplicate tab role assertions with `.first()`.
+    - replaced brittle `getByLabel("Character for this generation")` click with stable selector targeting the Radix select trigger id (`[id^="final-page-character-"]`).
 - Added E2E native dependency guard:
   - `package.json`
   - `pretest:e2e` and `pretest:e2e:ui` now run `npm rebuild better-sqlite3` to avoid Node ABI mismatch crashes in Playwright fixtures that open SQLite directly.

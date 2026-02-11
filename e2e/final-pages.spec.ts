@@ -137,7 +137,7 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
 
     // Open prompt tab and switch per-scene character.
     await page.getByRole("tab", { name: "Character + Prompt" }).first().click();
-    await page.getByLabel("Character for this generation").click();
+    await page.locator('[id^="final-page-character-"]').first().click();
     await page.getByRole("option", { name: /Eli E2E/ }).click();
 
     // Open request preview and verify both storyboard + character references are included.
