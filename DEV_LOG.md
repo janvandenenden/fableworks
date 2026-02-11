@@ -113,3 +113,5 @@
 - Fixed Next.js dynamic params handling for character detail route (awaited `params`).
 - Added character detail UI to show profile fields, status badge, and generated image gallery.
 - Fixed SQLite binding errors by serializing JSON arrays before inserting character profiles.
+- Added regenerate and delete actions for characters and surfaced controls on the detail page.
+- Forced Inngest route to use node runtime for better-sqlite3 compatibility.

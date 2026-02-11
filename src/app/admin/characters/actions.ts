@@ -3,6 +3,9 @@
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 type ActionResult<T> =
   | { success: true; data: T; warning?: string }
@@ -69,4 +72,63 @@ export async function createCharacterAction(
         : "Failed to create character";
     return { success: false, error: message };
   }
+}
+
+export async function regenerateCharacterAction(
+  id: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const rows = await db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.id, id))
+      .limit(1);
+
+    if (!rows[0]) {
+      return { success: false, error: "Character not found" };
+    }
+
+    const character = rows[0];
+    if (!character.sourceImageUrl) {
+      return { success: false, error: "Missing source image URL" };
+    }
+
+    await db
+      .update(schema.characters)
+      .set({ status: "generating" })
+      .where(eq(schema.characters.id, id));
+
+    await inngest.send({
+      name: "character/created",
+      data: {
+        id,
+        sourceImageUrl: character.sourceImageUrl,
+        stylePreset: character.stylePreset ?? "storybook",
+      },
+    });
+
+    revalidatePath(`/admin/characters/${id}`);
+    return { success: true, data: { id } };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to regenerate";
+    return { success: false, error: message };
+  }
+}
+
+export async function deleteCharacterAction(id: string) {
+  await db
+    .delete(schema.characterImages)
+    .where(eq(schema.characterImages.characterId, id));
+  await db
+    .delete(schema.characterProfiles)
+    .where(eq(schema.characterProfiles.characterId, id));
+  await db
+    .delete(schema.promptArtifacts)
+    .where(eq(schema.promptArtifacts.entityId, id));
+  await db.delete(schema.generatedAssets).where(eq(schema.generatedAssets.entityId, id));
+  await db.delete(schema.characters).where(eq(schema.characters.id, id));
+
+  revalidatePath("/admin/characters");
+  redirect("/admin/characters");
 }

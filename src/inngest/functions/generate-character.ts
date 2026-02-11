@@ -63,9 +63,18 @@ export const generateCharacter = inngest.createFunction(
       })
     );
 
-    const parsedProfile = visionProfileSchema.parse(
-      JSON.parse(visionResponse)
-    );
+    let parsedProfile: z.infer<typeof visionProfileSchema>;
+    try {
+      parsedProfile = visionProfileSchema.parse(JSON.parse(visionResponse));
+    } catch (error) {
+      await step.run("mark-prompt-failed", () =>
+        db
+          .update(schema.characters)
+          .set({ status: "draft" })
+          .where((row, { eq }) => eq(row.id, payload.id))
+      );
+      throw error;
+    }
 
     const normalizedProfile = {
       approxAge: parsedProfile.approxAge ?? null,

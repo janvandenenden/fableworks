@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
 import { desc, eq } from "drizzle-orm";
+import {
+  deleteCharacterAction,
+  regenerateCharacterAction,
+} from "@/app/admin/characters/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 
@@ -43,6 +48,29 @@ export default async function CharacterDetailPage({ params }: Props) {
           <Badge variant="secondary">{item.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">{item.gender}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <form
+          action={async () => {
+            "use server";
+            await regenerateCharacterAction(id);
+          }}
+        >
+          <Button type="submit" variant="secondary">
+            Regenerate
+          </Button>
+        </form>
+        <form
+          action={async () => {
+            "use server";
+            await deleteCharacterAction(id);
+          }}
+        >
+          <Button type="submit" variant="destructive">
+            Delete
+          </Button>
+        </form>
       </div>
 
       <Card>
