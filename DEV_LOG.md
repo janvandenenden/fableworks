@@ -1,5 +1,22 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 6 planning kickoff
+
+### Actions
+- Reviewed latest `DEV_LOG.md`, `PLAN.md` (Phase 6 section), and `CLAUDE.md` phase tracking.
+- Inspected Phase 5 implementation patterns (actions, prompt drafts, run history, single/bulk generation UX) to reuse in Phase 6.
+- Created detailed execution plan in `PHASE6_PLAN.md` with:
+  - internal phases (FP0-FP4),
+  - concrete file/action/component work order,
+  - status model + prompt artifact/entity conventions,
+  - tests, definition of done, and open decisions.
+
+### Open Decisions
+- Confirm whether final cover generation belongs in Phase 6 or remains in storyboard flow.
+- Confirm approval policy per scene version (single approved vs multiple approved).
+- Confirm bulk generation default (missing/failed only vs regenerate all).
+- Confirm reference payload shape for NanoBanana in final page generation.
+
 ## 2026-02-11 -- Phase 5 finalization (storyboard + cover unified flow)
 
 ### Actions
