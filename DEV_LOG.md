@@ -111,3 +111,4 @@
 - Normalized character creation to avoid setting `userId` when running locally without users, preventing FK failures.
 - Updated character creation to proceed even if Inngest event send fails, and route to detail page on success.
 - Fixed Next.js dynamic params handling for character detail route (awaited `params`).
+- Added character detail UI to show profile fields, status badge, and generated image gallery.
