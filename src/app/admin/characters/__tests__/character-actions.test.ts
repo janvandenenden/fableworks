@@ -11,10 +11,12 @@ const selectWhere = vi.fn(() => ({ limit: selectLimit }));
 const select = vi.fn(() => ({ from: () => ({ where: selectWhere }) }));
 
 const send = vi.fn(async () => ({ ids: ["event-id"] }));
+const insertProfileValues = vi.fn(async () => undefined);
+const insertProfile = vi.fn(() => ({ values: insertProfileValues, onConflictDoUpdate: vi.fn() }));
 
 vi.mock("@/db", () => ({
   db: {
-    insert: () => ({ values: insertValues }),
+    insert: vi.fn(() => ({ values: insertValues })),
     update,
     delete: deleteFn,
     select,
@@ -69,5 +71,29 @@ describe("character actions", () => {
     await deleteCharacterAction(formData);
 
     expect(deleteFn).toHaveBeenCalled();
+  });
+
+  it("updateCharacterProfileAction upserts profile", async () => {
+    const { db } = await import("@/db");
+    const { updateCharacterProfileAction } = await import(
+      "@/app/admin/characters/actions"
+    );
+
+    const insertSpy = db.insert as unknown as ReturnType<typeof vi.fn>;
+    insertSpy.mockImplementationOnce(() => ({
+      values: () => ({
+        onConflictDoUpdate: async () => undefined,
+      }),
+    }));
+
+    const formData = new FormData();
+    formData.set("approxAge", "5");
+    formData.set("hairColor", "brown");
+    formData.set("colorPalette", "warm, pastel");
+    formData.set("personalityTraits", "curious, kind");
+    formData.set("doNotChange", "freckles");
+
+    const result = await updateCharacterProfileAction("char-1", formData);
+    expect(result.success).toBe(true);
   });
 });
