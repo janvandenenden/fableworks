@@ -123,3 +123,11 @@
 - Expanded Replicate URL extraction (handles `image` and string outputs) and mark prompts as running.
 - Added Replicate output handling for FileOutput/url()/href and ensured prompt failures are recorded if Replicate run throws.
 - Switched character generation to create and poll Replicate predictions until completed.
+### Problems & Resolutions (detailed)
+1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
+2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.
+3. **Next.js params Promise in dynamic route:** Awaited `params` in detail page.
+4. **SQLite binding errors with arrays and where callbacks:** Serialized JSON arrays before insert; replaced callback-style `where` with `eq(...)`.
+5. **OpenAI Vision JSON formatting:** Stripped code fences; coerced numeric fields to strings.
+6. **Replicate output shape variance:** Expanded URL extraction (array/object/FileOutput/url()) and recorded raw output for debugging.
+7. **Replicate returning pending output:** Switched to create/poll prediction until completed.
