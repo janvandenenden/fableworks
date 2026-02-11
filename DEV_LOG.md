@@ -1,5 +1,223 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 6 implementation (slice 1: final page prompt contract)
+
+### Actions
+- Added `src/lib/prompts/final-page.ts`:
+  - `FINAL_PAGE_ASPECT_RATIO`
+  - `buildFinalPagePrompt(...)`
+  - `buildFinalPageRequestPayload(...)`
+- Prompt contract now includes:
+  - storyboard composition constraints,
+  - selected character reference and invariants (`doNotChange`),
+  - scene-linked props,
+  - style preset + color palette consistency rules,
+  - explicit "no text/watermarks/borders" output constraints.
+- Added tests:
+  - `src/lib/prompts/__tests__/final-page.test.ts`
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/storyboard.test.ts` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 2: final pages actions + UI scaffold)
+
+### Actions
+- Added final pages server actions:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - Implemented:
+    - `generateFinalPagesAction` (bulk)
+    - `generateFinalPageAction` (single scene)
+    - `generateFinalPageFromRunAction` (reuse run payload)
+    - `saveFinalPagePromptDraftAction`
+    - `approveFinalPageVersionAction`
+- Added final pages admin route:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Includes prerequisite gating (scenes/storyboard/character link/selected character variant) and bulk generation entrypoint.
+- Added final pages UI components:
+  - `src/components/admin/final-pages-view.tsx`
+  - `src/components/admin/final-page-card.tsx`
+  - Includes side-by-side storyboard vs final preview, prompt draft editing, request preview, run history reuse, and version approval controls.
+- Updated story detail navigation:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - Added `Open Final Pages` button when storyboard/pages statuses are present.
+
+### Tests
+- Ran targeted suites:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+  - `npm run test -- src/app/admin/stories/[id]/storyboard/__tests__/actions.test.ts` (pass)
+
+### Problems
+1. `npx tsc --noEmit` still fails in this environment due local TypeScript binary resolution:
+   - `Cannot find module '../lib/tsc.js'` from `node_modules/.bin/tsc`.
+
+## 2026-02-11 -- Phase 6 implementation (slice 3: story-to-character linking clarity)
+
+### Actions
+- Added explicit story-to-character linking in story metadata editor:
+  - `src/components/admin/story-editor.tsx`
+  - New `Linked character` select field now saves `stories.characterId` via existing save action.
+- Extended story meta update action to persist optional `characterId`:
+  - `src/app/admin/stories/actions.ts`
+  - Supports unlink (`No character linked`) and link updates.
+- Updated story detail page data wiring:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - Loads available characters for selector.
+  - Resolves whether linked character has a selected variant (`character_images.is_selected = true`) and surfaces guidance in editor.
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
+### Fixes
+- Fixed runtime bug in `StoryEditor`:
+  - `characters is not defined`
+  - Root cause: props were typed but `characters` and `selectedCharacterImageUrl` were not destructured in component args.
+  - File: `src/components/admin/story-editor.tsx`
+- Verified with targeted test:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts` (pass)
+
+### UX updates
+- Made story-to-character selection visible regardless of manuscript status:
+  - `src/app/admin/stories/[id]/page.tsx` now always renders `StoryEditor`.
+  - `src/components/admin/story-editor.tsx` now always shows manuscript generation button (generate/regenerate label based on state), while keeping linked character selector available at all times.
+- Added story list clarity:
+  - `src/app/admin/stories/page.tsx` now shows `Character: linked/not linked` for each story row.
+- Verified targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 4: per-panel character override for final pages)
+
+### Actions
+- Added per-scene character override for final page generation:
+  - `src/components/admin/final-page-card.tsx`
+  - Each panel now has `Character for this generation` selector.
+  - You can render the same storyboard panel for different characters without changing the story link.
+- Extended final page actions to accept optional character override:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - `generateFinalPageAction`, `generateFinalPageFromRunAction`, and bulk path now support `characterId`.
+- Added run metadata for traceability:
+  - Prompt artifacts now persist `structuredFields.characterId/characterName`.
+  - Generated asset metadata now includes character context.
+- Extended final pages route data:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Supplies available characters + selected variant availability to each scene card.
+  - Prerequisite now checks for at least one selectable character variant.
+  - Added UI hint that each scene card can use different characters for testing.
+- Updated scene view types:
+  - `src/components/admin/final-pages-view.tsx`
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 5: bulk character selector + tabbed cards + dual image refs)
+
+### Actions
+- Added top-level bulk character selector for final pages:
+  - `src/components/admin/final-pages-bulk-controls.tsx`
+  - Wired into `src/app/admin/stories/[id]/pages/page.tsx`.
+  - Bulk generation can target a chosen character with selected variant.
+- Updated per-scene final page cards to tabbed layout:
+  - `src/components/admin/final-page-card.tsx`
+  - Tabs:
+    - `Images` (storyboard vs final + versions)
+    - `Character + Prompt` (character picker + exact prompt editor)
+- Updated final page payload construction to include both references:
+  - `src/lib/prompts/final-page.ts`
+  - Request now sends `image: [storyboardReferenceUrl, characterReferenceUrl]`.
+  - Adjusted action validation/parsing in `src/app/admin/stories/[id]/pages/actions.ts` to accept both string and array image formats for run reuse compatibility.
+- Improved scene/bulk data wiring:
+  - Added selected-variant metadata per character to scene view data in `src/app/admin/stories/[id]/pages/page.tsx`.
+  - Added character context display in run history and request preview payload.
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 6: final pages actions tests)
+
+### Actions
+- Added dedicated actions test suite for Phase 6 final pages:
+  - `src/app/admin/stories/[id]/pages/__tests__/actions.test.ts`
+- Covered:
+  - single-page generation with character override,
+  - prompt draft save with character context,
+  - run-reuse type validation failure path,
+  - approve/unapprove flow for versions,
+  - bulk generation story status transitions (`pages_generating` -> `pages_ready`).
+- Asserted dual-reference payload behavior (`image` includes storyboard + character references).
+
+### Tests
+- Ran:
+  - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+  - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 7: final page card component tests)
+
+### Actions
+- Added dedicated component tests:
+  - `src/components/admin/__tests__/final-page-card.test.tsx`
+- Covered:
+  - tab rendering and image comparison presence,
+  - character-gating behavior when story-linked character lacks selected variant,
+  - prompt draft save flow with character context in form payload.
+- Added a small testability hook:
+  - `src/components/admin/final-page-card.tsx` now supports optional `defaultTab` prop (`images` default, `prompt` for tests).
+
+### Tests
+- Ran:
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx` (pass)
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
+
+## 2026-02-11 -- Phase 6 implementation (slice 8: final pages E2E coverage)
+
+### Actions
+- Added Playwright E2E spec:
+  - `e2e/final-pages.spec.ts`
+- The spec seeds `local.db` directly for deterministic setup and validates:
+  - final pages route loads for seeded story,
+  - bulk character selector interaction,
+  - per-scene `Character + Prompt` tab interaction,
+  - request preview contains both storyboard and character reference URLs.
+
+### Problems
+1. Could not execute Playwright in this environment:
+   - `next dev` fails because local Node is `18.16.0`, while Next.js 16 requires `>=20.9.0`.
+   - Error surfaced by Playwright `webServer` startup.
+
+### Follow-up updates
+- Made bulk character selector always visible on final pages route:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Selector remains visible even when generation is blocked by prerequisites.
+  - Block reasons are now shown inline; generate action is disabled accordingly.
+- Extended bulk control component for disabled-state guidance:
+  - `src/components/admin/final-pages-bulk-controls.tsx`
+  - Added story-linked character validity handling and prerequisite reason display.
+- Hardened E2E locator strategy:
+  - `e2e/final-pages.spec.ts`
+  - Switched from label-dependent combobox lookup to deterministic combobox-first selector.
+  - Scoped request-preview assertions to the dialog content.
+- Verified targeted tests:
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 6 planning kickoff
+
+### Actions
+- Reviewed latest `DEV_LOG.md`, `PLAN.md` (Phase 6 section), and `CLAUDE.md` phase tracking.
+- Inspected Phase 5 implementation patterns (actions, prompt drafts, run history, single/bulk generation UX) to reuse in Phase 6.
+- Created detailed execution plan in `PHASE6_PLAN.md` with:
+  - internal phases (FP0-FP4),
+  - concrete file/action/component work order,
+  - status model + prompt artifact/entity conventions,
+  - tests, definition of done, and open decisions.
+
+### Open Decisions
+- Confirm whether final cover generation belongs in Phase 6 or remains in storyboard flow.
+- Confirm approval policy per scene version (single approved vs multiple approved).
+- Confirm bulk generation default (missing/failed only vs regenerate all).
+- Confirm reference payload shape for NanoBanana in final page generation.
+
 ## 2026-02-11 -- Phase 5 finalization (storyboard + cover unified flow)
 
 ### Actions

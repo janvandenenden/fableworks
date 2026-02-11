@@ -1,9 +1,8 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import {
-  generateManuscriptAction,
   generateScenesAction,
   regenerateConceptAction,
 } from "@/app/admin/stories/actions";
@@ -59,6 +58,27 @@ export default async function StoryDetailPage({ params }: Props) {
     })
     .from(schema.propsBibleEntries)
     .where(eq(schema.propsBibleEntries.storyId, id));
+  const characters = await db
+    .select({
+      id: schema.characters.id,
+      name: schema.characters.name,
+      status: schema.characters.status,
+    })
+    .from(schema.characters)
+    .orderBy(desc(schema.characters.createdAt));
+  const selectedCharacterImageRows = story.characterId
+    ? await db
+        .select({ imageUrl: schema.characterImages.imageUrl })
+        .from(schema.characterImages)
+        .where(
+          and(
+            eq(schema.characterImages.characterId, story.characterId),
+            eq(schema.characterImages.isSelected, true)
+          )
+        )
+        .limit(1)
+    : [];
+  const selectedCharacterImageUrl = selectedCharacterImageRows[0]?.imageUrl ?? null;
   const artifacts = await db
     .select()
     .from(schema.promptArtifacts)
@@ -98,6 +118,7 @@ export default async function StoryDetailPage({ params }: Props) {
   const hasManuscript =
     !!manuscriptData || !!story.title?.trim() || !!story.storyArc?.trim();
   const hasScenes = scenes.length > 0;
+  const hasStoryboard = story.status.includes("storyboard") || story.status.includes("pages");
   const propsByScene = propsBible.reduce<Record<number, string[]>>(
     (acc, prop) => {
       if (!prop.appearsInScenes) return acc;
@@ -149,6 +170,15 @@ export default async function StoryDetailPage({ params }: Props) {
               Open Storyboard
             </Button>
           )}
+          {hasStoryboard ? (
+            <Button asChild variant="outline">
+              <Link href={`/admin/stories/${id}/pages`}>Open Final Pages</Link>
+            </Button>
+          ) : (
+            <Button variant="outline" disabled>
+              Open Final Pages
+            </Button>
+          )}
           <StoryDeleteButton storyId={id} />
         </div>
       </div>
@@ -179,31 +209,18 @@ export default async function StoryDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {hasManuscript ? (
-        <StoryEditor
-          story={{
-            id: story.id,
-            title: story.title ?? manuscriptData?.title ?? null,
-            storyArc: story.storyArc ?? manuscriptData?.arcSummary ?? null,
-          }}
-          canRegenerateManuscript
-        />
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Step 2: Manuscript Metadata</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">No manuscript metadata yet.</p>
-            <form action={generateManuscriptAction}>
-              <input type="hidden" name="storyId" value={id} />
-              <Button type="submit" disabled={!hasConcept}>
-                Generate Manuscript Metadata
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <StoryEditor
+        story={{
+          id: story.id,
+          title: story.title ?? manuscriptData?.title ?? null,
+          storyArc: story.storyArc ?? manuscriptData?.arcSummary ?? null,
+          characterId: story.characterId ?? null,
+        }}
+        characters={characters}
+        selectedCharacterImageUrl={selectedCharacterImageUrl}
+        canGenerateManuscript={hasConcept}
+        canRegenerateManuscript={hasManuscript}
+      />
 
       {!hasScenes ? (
         <Card>
