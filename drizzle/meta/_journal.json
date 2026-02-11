@@ -15,6 +15,13 @@
       "when": 1770808770998,
       "tag": "0001_mean_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770838683248,
+      "tag": "0002_whole_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

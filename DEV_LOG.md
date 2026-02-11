@@ -1,5 +1,41 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 8 implementation (slice 3: starter credits + generation guards) [in progress]
+
+### Actions
+- Added starter-credit + ledger schema:
+  - `src/db/schema.ts`
+  - `user_credits` table (starter + paid balances)
+  - `credit_ledger_entries` table (audit trail with idempotency key)
+- Generated migration artifacts:
+  - `drizzle/0002_whole_kulan_gath.sql`
+  - `drizzle/meta/0002_snapshot.json`
+  - `drizzle/meta/_journal.json`
+- Added credit helper service:
+  - `src/lib/credits.ts`
+  - Seeds one-time starter credits per user (`$0.20` default via cents),
+  - Debits generation for unpaid users,
+  - Allows generation without starter debit when user has a paid order,
+  - Adds idempotent paid credit grants tied to `orderId`.
+- Added credit unit tests:
+  - `src/lib/__tests__/credits.test.ts`
+- Wired generation guards:
+  - `src/app/admin/characters/actions.ts`
+    - create/regenerate now consume credits for authenticated owners.
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+    - final page generation now consumes credits when story has an owner.
+- Updated Stripe webhook post-payment handling:
+  - `src/app/api/webhooks/stripe/route.ts`
+  - On `checkout.session.completed`, grant paid reroll credits idempotently.
+
+### Tests
+- `npm run test -- src/lib/__tests__/credits.test.ts src/app/admin/characters/__tests__/character-actions.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts` (pass)
+- `npm run lint` (pass)
+- `npx drizzle-kit migrate` (pass)
+
+### Problems
+1. `drizzle-kit migrate` initially failed due `better-sqlite3` ABI mismatch. Fixed by running `npm rebuild`, then re-running migration.
+
 ## 2026-02-11 -- Phase 8 implementation (slice 2: Stripe checkout wiring) [in progress]
 
 ### Actions

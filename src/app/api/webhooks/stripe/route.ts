@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { db, schema } from "@/db";
+import { grantPaidRerollCreditsForOrder } from "@/lib/credits";
 import { getStripeClient, getStripeWebhookSecret } from "@/lib/stripe";
 
 function newId(): string {
@@ -70,6 +71,13 @@ export async function POST(request: Request) {
           id: newId(),
           orderId: order.id,
           printStatus: "pending_generation",
+        });
+      }
+
+      if (order.userId) {
+        await grantPaidRerollCreditsForOrder({
+          userId: order.userId,
+          orderId: order.id,
         });
       }
     }

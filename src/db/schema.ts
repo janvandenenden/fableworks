@@ -193,3 +193,29 @@ export const books = sqliteTable("books", {
   createdAt: timestamp("created_at"),
   updatedAt: timestamp("updated_at"),
 });
+
+export const userCredits = sqliteTable("user_credits", {
+  userId: text("user_id")
+    .notNull()
+    .primaryKey()
+    .references(() => users.id),
+  starterCreditsCents: integer("starter_credits_cents").notNull().default(0),
+  paidCreditsCents: integer("paid_credits_cents").notNull().default(0),
+  createdAt: timestamp("created_at"),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const creditLedgerEntries = sqliteTable("credit_ledger_entries", {
+  id: uuidText("id"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id),
+  orderId: text("order_id").references(() => orders.id),
+  entryType: text("entry_type").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  balanceStarterAfterCents: integer("balance_starter_after_cents"),
+  balancePaidAfterCents: integer("balance_paid_after_cents"),
+  idempotencyKey: text("idempotency_key").unique(),
+  metadata: text("metadata", { mode: "json" }),
+  createdAt: timestamp("created_at"),
+});

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
+import { consumeGenerationCreditForUser } from "@/lib/credits";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -49,6 +50,18 @@ export async function createCharacterAction(
 
     let warning: string | undefined;
     try {
+      if (normalizedUserId) {
+        const creditResult = await consumeGenerationCreditForUser({
+          userId: normalizedUserId,
+          operation: "character_generation",
+          metadata: { characterId: id, mode: "create" },
+        });
+        if (!creditResult.success) {
+          await db.delete(schema.characters).where(eq(schema.characters.id, id));
+          return { success: false, error: creditResult.error };
+        }
+      }
+
       await inngest.send({
         name: "character/created",
         data: {
@@ -93,6 +106,17 @@ export async function regenerateCharacterFromModeAction(formData: FormData) {
   const character = rows[0];
   if (!character.sourceImageUrl) {
     return;
+  }
+
+  if (character.userId) {
+    const creditResult = await consumeGenerationCreditForUser({
+      userId: character.userId,
+      operation: "character_generation",
+      metadata: { characterId: id, mode: mode === "profile" ? "profile_reroll" : "vision_reroll" },
+    });
+    if (!creditResult.success) {
+      return;
+    }
   }
 
   await db

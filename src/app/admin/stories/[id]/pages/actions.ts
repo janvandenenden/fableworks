@@ -10,6 +10,7 @@ import {
   getReplicateClient,
 } from "@/lib/replicate";
 import { copyFromTempUrl } from "@/lib/r2";
+import { consumeGenerationCreditForUser } from "@/lib/credits";
 import {
   buildFinalPagePrompt,
   buildFinalPageRequestPayload,
@@ -434,6 +435,21 @@ async function generateSingleFinalPage(input: {
   const { story, scene, panel, selectedImage, linkedProps, colorPalette, doNotChange } =
     contextResult.data;
 
+  if (story.userId) {
+    const creditResult = await consumeGenerationCreditForUser({
+      userId: story.userId,
+      operation: "final_page_generation",
+      metadata: {
+        storyId: input.storyId,
+        sceneId: input.sceneId,
+        characterId: contextResult.data.characterId,
+      },
+    });
+    if (!creditResult.success) {
+      return { success: false, error: creditResult.error };
+    }
+  }
+
   const generatedPrompt = buildFinalPagePrompt({
     sceneNumber: scene.sceneNumber,
     spreadText: scene.spreadText,
@@ -453,13 +469,13 @@ async function generateSingleFinalPage(input: {
   });
 
   const prompt = input.promptOverride?.trim() || generatedPrompt;
-    const requestPayload =
-      input.requestPayloadOverride ??
-      buildFinalPageRequestPayload({
-        prompt,
-        storyboardReferenceUrl: panel.imageUrl,
-        characterReferenceUrl: selectedImage.imageUrl,
-      });
+  const requestPayload =
+    input.requestPayloadOverride ??
+    buildFinalPageRequestPayload({
+      prompt,
+      storyboardReferenceUrl: panel.imageUrl,
+      characterReferenceUrl: selectedImage.imageUrl,
+    });
 
   const promptId = newId();
   await db.insert(schema.promptArtifacts).values({
