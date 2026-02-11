@@ -8,7 +8,7 @@ const mockCreatePrediction = vi.fn();
 const mockGetPrediction = vi.fn();
 const mockGetReplicateClient = vi.fn();
 
-const insertValues = vi.fn(async () => ({ onConflictDoUpdate: async () => undefined }));
+const insertValues = vi.fn(() => ({ onConflictDoUpdate: async () => undefined }));
 const updateWhere = vi.fn(async () => undefined);
 const updateSet = vi.fn(() => ({ where: updateWhere }));
 const update = vi.fn(() => ({ set: updateSet }));
