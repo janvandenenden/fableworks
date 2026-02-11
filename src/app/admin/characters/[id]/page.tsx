@@ -4,14 +4,15 @@ import { eq } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Props = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 export default async function CharacterDetailPage({ params }: Props) {
+  const { id } = await params;
   const character = await db
     .select()
     .from(schema.characters)
-    .where(eq(schema.characters.id, params.id))
+    .where(eq(schema.characters.id, id))
     .limit(1);
 
   if (!character[0]) {
