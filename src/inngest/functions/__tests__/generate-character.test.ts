@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockInngestStep } from "@/test/mocks/inngest";
 
 const mockAnalyzeImage = vi.fn();
-const mockRunPrediction = vi.fn();
 const mockExtractImageUrl = vi.fn();
 const mockCopyFromTempUrl = vi.fn();
+const mockCreatePrediction = vi.fn();
+const mockGetPrediction = vi.fn();
+const mockGetReplicateClient = vi.fn();
 
 const insertValues = vi.fn(async () => undefined);
 const updateWhere = vi.fn(async () => undefined);
@@ -33,7 +35,8 @@ vi.mock("@/lib/replicate", () => ({
   MODELS: {
     nanoBanana: "model",
   },
-  runPrediction: mockRunPrediction,
+  createPrediction: mockCreatePrediction,
+  getReplicateClient: mockGetReplicateClient,
   extractImageUrl: mockExtractImageUrl,
 }));
 
@@ -61,7 +64,16 @@ describe("generate-character function", () => {
         doNotChange: ["freckles"],
       })
     );
-    mockRunPrediction.mockResolvedValueOnce("https://replicate/tmp.png");
+    mockCreatePrediction.mockResolvedValueOnce({ id: "pred-1", status: "starting" });
+    mockGetPrediction.mockResolvedValueOnce({
+      status: "succeeded",
+      output: ["https://replicate/tmp.png"],
+    });
+    mockGetReplicateClient.mockReturnValueOnce({
+      predictions: {
+        get: mockGetPrediction,
+      },
+    });
     mockExtractImageUrl.mockReturnValueOnce("https://replicate/tmp.png");
     mockCopyFromTempUrl.mockResolvedValueOnce(
       "https://r2.example.com/characters/char-1/img.png"
@@ -89,5 +101,71 @@ describe("generate-character function", () => {
     expect(insertValues).toHaveBeenCalled();
     expect(update).toHaveBeenCalled();
     expect(updateWhere).toHaveBeenCalled();
+  });
+
+  it("reuses existing profile when requested", async () => {
+    const { db } = await import("@/db");
+    const selectOnce = vi.fn(() => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [
+            {
+              approxAge: "6",
+              hairColor: "black",
+              hairLength: "short",
+              hairTexture: "straight",
+              hairStyle: "crew",
+              faceShape: "oval",
+              eyeColor: "brown",
+              eyeShape: "round",
+              skinTone: "medium",
+              clothing: "hoodie",
+              distinctiveFeatures: "freckles",
+              colorPalette: JSON.stringify(["blue", "gray"]),
+              personalityTraits: JSON.stringify(["curious"]),
+              doNotChange: JSON.stringify(["freckles"]),
+              rawVisionDescription: "desc",
+            },
+          ],
+        }),
+      }),
+    }));
+    (db.select as unknown as () => unknown) = selectOnce;
+
+    mockCreatePrediction.mockResolvedValueOnce({ id: "pred-2", status: "starting" });
+    mockGetPrediction.mockResolvedValueOnce({
+      status: "succeeded",
+      output: ["https://replicate/tmp2.png"],
+    });
+    mockGetReplicateClient.mockReturnValueOnce({
+      predictions: {
+        get: mockGetPrediction,
+      },
+    });
+    mockExtractImageUrl.mockReturnValueOnce("https://replicate/tmp2.png");
+    mockCopyFromTempUrl.mockResolvedValueOnce(
+      "https://r2.example.com/characters/char-2/img.png"
+    );
+
+    const mod = await import("@/inngest/functions/generate-character");
+    const handler =
+      (mod.generateCharacter as { handler?: Function }).handler ??
+      (mod.generateCharacter as unknown as Function);
+
+    const step = createMockInngestStep();
+
+    await handler({
+      event: {
+        data: {
+          id: "char-2",
+          sourceImageUrl: "https://uploads.example.com/child.png",
+          stylePreset: "watercolor",
+          useExistingProfile: true,
+        },
+      },
+      step,
+    });
+
+    expect(mockAnalyzeImage).not.toHaveBeenCalled();
   });
 });
