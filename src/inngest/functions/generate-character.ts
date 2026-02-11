@@ -107,11 +107,17 @@ export const generateCharacter = inngest.createFunction(
     };
 
     await step.run("store-profile", () =>
-      db.insert(schema.characterProfiles).values({
-        id: newId(),
-        characterId: payload.id,
-        ...normalizedProfile,
-      })
+      db
+        .insert(schema.characterProfiles)
+        .values({
+          id: newId(),
+          characterId: payload.id,
+          ...normalizedProfile,
+        })
+        .onConflictDoUpdate({
+          target: schema.characterProfiles.characterId,
+          set: normalizedProfile,
+        })
     );
 
     const stylePreset = ((): "watercolor" | "storybook" | "anime" | "flat" | "colored-pencil" => {
@@ -169,6 +175,21 @@ export const generateCharacter = inngest.createFunction(
 
     const tempUrl = extractImageUrl(predictionOutput);
     if (!tempUrl) {
+      await step.run("mark-prompt-failed", () =>
+        db
+          .update(schema.promptArtifacts)
+          .set({
+            status: "failed",
+            errorMessage: "Replicate did not return an image URL",
+          })
+          .where(eq(schema.promptArtifacts.id, promptId))
+      );
+      await step.run("mark-failed", () =>
+        db
+          .update(schema.characters)
+          .set({ status: "draft" })
+          .where(eq(schema.characters.id, payload.id))
+      );
       throw new Error("Replicate did not return an image URL");
     }
 

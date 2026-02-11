@@ -60,6 +60,17 @@ export function extractImageUrl(output: unknown): string | null {
   if (
     output &&
     typeof output === "object" &&
+    "output" in output &&
+    Array.isArray((output as { output: unknown }).output)
+  ) {
+    const value = (output as { output: unknown }).output;
+    if (Array.isArray(value) && typeof value[0] === "string") {
+      return value[0];
+    }
+  }
+  if (
+    output &&
+    typeof output === "object" &&
     "url" in output &&
     typeof (output as { url: unknown }).url === "string"
   ) {
