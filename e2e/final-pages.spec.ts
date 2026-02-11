@@ -130,8 +130,10 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
     await page.getByRole("option", { name: /Eli E2E/ }).click();
 
     // Verify scene card tabs are present.
-    await expect(page.getByRole("tab", { name: "Images" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Character + Prompt" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Images" }).first()).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Character + Prompt" }).first()
+    ).toBeVisible();
 
     // Open prompt tab and switch per-scene character.
     await page.getByRole("tab", { name: "Character + Prompt" }).first().click();

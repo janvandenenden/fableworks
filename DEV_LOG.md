@@ -29,6 +29,13 @@
 - `npm run lint` (pass)
 - `npm run test -- src/lib/__tests__/credits.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/app/admin/characters/__tests__/character-actions.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
 
+### E2E follow-up
+- Updated flaky Playwright assertions:
+  - `e2e/character-creation.spec.ts`
+    - no longer assumes immediate redirect; opens the created character via first visible `View` action.
+  - `e2e/final-pages.spec.ts`
+    - resolves strict-mode conflict by scoping duplicate tab role assertions with `.first()`.
+
 ## 2026-02-11 -- Phase 8 implementation (slice 3: starter credits + generation guards) [in progress]
 
 ### Actions
