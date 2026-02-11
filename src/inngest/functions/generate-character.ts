@@ -191,12 +191,31 @@ export const generateCharacter = inngest.createFunction(
         .where(eq(schema.promptArtifacts.id, promptId))
     );
 
-    const predictionOutput = await step.run("replicate-generate", () =>
-      runPrediction(MODELS.nanoBanana, {
-        prompt,
-        image: payload.sourceImageUrl,
-      })
-    );
+    let predictionOutput: unknown;
+    try {
+      predictionOutput = await step.run("replicate-generate", () =>
+        runPrediction(MODELS.nanoBanana, {
+          prompt,
+          image: payload.sourceImageUrl,
+        })
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Replicate run failed";
+      await step.run("mark-prompt-failed", () =>
+        db
+          .update(schema.promptArtifacts)
+          .set({ status: "failed", errorMessage: message })
+          .where(eq(schema.promptArtifacts.id, promptId))
+      );
+      await step.run("mark-failed", () =>
+        db
+          .update(schema.characters)
+          .set({ status: "draft" })
+          .where(eq(schema.characters.id, payload.id))
+      );
+      throw error;
+    }
 
     const outputSnapshot = (() => {
       try {

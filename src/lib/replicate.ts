@@ -75,6 +75,14 @@ export function extractImageUrl(output: unknown): string | null {
     ) {
       return (first as { image: string }).image;
     }
+    if (
+      first &&
+      typeof first === "object" &&
+      "url" in first &&
+      typeof (first as { url: unknown }).url === "function"
+    ) {
+      return String((first as { url: () => unknown }).url());
+    }
   }
   if (
     output &&
@@ -83,6 +91,26 @@ export function extractImageUrl(output: unknown): string | null {
     typeof (output as { image: unknown }).image === "string"
   ) {
     return (output as { image: string }).image;
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "url" in output &&
+    typeof (output as { url: unknown }).url === "function"
+  ) {
+    return String((output as { url: () => unknown }).url());
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "href" in output &&
+    typeof (output as { href: unknown }).href === "string"
+  ) {
+    return (output as { href: string }).href;
+  }
+  if (output && typeof output === "object") {
+    const asString = String(output);
+    if (asString.startsWith("http")) return asString;
   }
   if (
     output &&
