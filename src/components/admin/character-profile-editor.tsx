@@ -28,9 +28,16 @@ type Profile = {
 type Props = {
   characterId: string;
   profile: Profile | null;
+  isOpen: boolean;
+  onClose: () => void;
 };
 
-export function CharacterProfileEditor({ characterId, profile }: Props) {
+export function CharacterProfileEditor({
+  characterId,
+  profile,
+  isOpen,
+  onClose,
+}: Props) {
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -44,7 +51,12 @@ export function CharacterProfileEditor({ characterId, profile }: Props) {
         return;
       }
       toast.success("Profile saved");
+      onClose();
     });
+  }
+
+  if (!isOpen) {
+    return null;
   }
 
   return (

@@ -14,7 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-auto-refresh";
 import { CharacterGallery } from "@/components/admin/character-gallery";
-import { CharacterProfileEditor } from "@/components/admin/character-profile-editor";
+import { CharacterProfileSection } from "@/components/admin/character-profile-section";
+import { getStylePresets } from "@/lib/prompts/character";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -73,32 +74,60 @@ export default async function CharacterDetailPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <div>
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-semibold">{item.name}</h1>
-        <Badge variant="secondary">{item.status}</Badge>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold">{item.name}</h1>
+          <Badge variant="secondary">{item.status}</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{item.gender}</p>
       </div>
-      <p className="text-sm text-muted-foreground">{item.gender}</p>
-    </div>
 
-    {isGenerating ? <CharacterDetailAutoRefresh /> : null}
+      {isGenerating ? <CharacterDetailAutoRefresh /> : null}
 
       <div className="flex flex-wrap gap-3">
         <form
-          action={async () => {
+          action={async (formData) => {
             "use server";
-            await regenerateCharacterAction(id);
+            await regenerateCharacterAction(formData);
           }}
+          className="flex flex-wrap items-center gap-2"
         >
+          <input type="hidden" name="id" value={id} />
+          <select
+            name="stylePreset"
+            defaultValue="default"
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="default">Use current style</option>
+            {getStylePresets().map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
           <Button type="submit" variant="secondary">
             Regenerate (with vision)
           </Button>
         </form>
         <form
-          action={async () => {
+          action={async (formData) => {
             "use server";
-            await regenerateImagesFromProfileAction(id);
+            await regenerateImagesFromProfileAction(formData);
           }}
+          className="flex flex-wrap items-center gap-2"
         >
+          <input type="hidden" name="id" value={id} />
+          <select
+            name="stylePreset"
+            defaultValue="default"
+            className="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="default">Use current style</option>
+            {getStylePresets().map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
           <Button type="submit" variant="outline">
             Regenerate images only
           </Button>
@@ -151,60 +180,23 @@ export default async function CharacterDetailPage({ params }: Props) {
               "none"
             )}
           </div>
+          {item.sourceImageUrl ? (
+            <div className="relative mt-3 h-48 w-40 overflow-hidden rounded-md border">
+              <Image
+                src={item.sourceImageUrl}
+                alt={`${item.name} source`}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       <Separator />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {!latestProfile ? (
-            <p className="text-muted-foreground">
-              Profile not generated yet. Check Inngest logs.
-            </p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>Approx age: {latestProfile.approxAge ?? "—"}</div>
-              <div>Hair color: {latestProfile.hairColor ?? "—"}</div>
-              <div>Hair length: {latestProfile.hairLength ?? "—"}</div>
-              <div>Hair texture: {latestProfile.hairTexture ?? "—"}</div>
-              <div>Hair style: {latestProfile.hairStyle ?? "—"}</div>
-              <div>Face shape: {latestProfile.faceShape ?? "—"}</div>
-              <div>Eye color: {latestProfile.eyeColor ?? "—"}</div>
-              <div>Eye shape: {latestProfile.eyeShape ?? "—"}</div>
-              <div>Skin tone: {latestProfile.skinTone ?? "—"}</div>
-              <div>Clothing: {latestProfile.clothing ?? "—"}</div>
-              <div>
-                Distinctive features:{" "}
-                {latestProfile.distinctiveFeatures ?? "—"}
-              </div>
-              <div>
-                Color palette:{" "}
-                {latestProfile.colorPalette
-                  ? JSON.stringify(latestProfile.colorPalette)
-                  : "—"}
-              </div>
-              <div>
-                Personality traits:{" "}
-                {latestProfile.personalityTraits
-                  ? JSON.stringify(latestProfile.personalityTraits)
-                  : "—"}
-              </div>
-              <div>
-                Do not change:{" "}
-                {latestProfile.doNotChange
-                  ? JSON.stringify(latestProfile.doNotChange)
-                  : "—"}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <CharacterProfileEditor characterId={id} profile={profileForEdit} />
+      <CharacterProfileSection characterId={id} profile={profileForEdit} />
 
       <Card>
         <CardHeader>
