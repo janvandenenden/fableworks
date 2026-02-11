@@ -49,7 +49,10 @@ export function StoryboardView({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {panels.map((panel) => (
-        <StoryboardPanel key={panel.id} panel={panel} />
+        <StoryboardPanel
+          key={`${panel.id}:${panel.imageUrl ?? "no-image"}:${panel.promptPreview}`}
+          panel={panel}
+        />
       ))}
     </div>
   );

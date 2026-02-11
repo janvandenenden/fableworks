@@ -70,17 +70,6 @@ function parseSceneNumbers(value: string | null): number[] {
   }
 }
 
-function parseStringArray(value: string | null): string[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((item) => String(item));
-  } catch {
-    return [];
-  }
-}
-
 function mapLinkedPropsForScene(
   sceneNumber: number,
   props: Array<{

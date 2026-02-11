@@ -7,7 +7,8 @@ import type { NextRequest } from "next/server";
 
 const hasClerkKey = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-function noopMiddleware(_request: NextRequest) {
+function noopMiddleware(request: NextRequest) {
+  void request;
   return NextResponse.next();
 }
 

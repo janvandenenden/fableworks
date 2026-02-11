@@ -1,17 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Code2, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  approveFinalPageVersionAction,
-  generateFinalPageAction,
-  generateFinalPageFromRunAction,
-  saveFinalPagePromptDraftAction,
+  generateFinalCoverAction,
+  generateFinalCoverFromRunAction,
+  saveFinalCoverPromptDraftAction,
 } from "@/app/admin/stories/[id]/pages/actions";
-import type { FinalPageSceneData } from "@/components/admin/final-pages-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -33,6 +31,24 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
+type CoverCharacter = {
+  id: string;
+  name: string;
+  status: string;
+  hasSelectedVariant: boolean;
+  selectedVariantImageUrl: string | null;
+};
+
+type CoverRun = {
+  id: string;
+  status: string | null;
+  errorMessage: string | null;
+  rawPrompt: string;
+  parameters: string | null;
+  resultUrl: string | null;
+  createdAt: string | null;
+};
+
 function formatTimestamp(value: string | null): string {
   if (!value) return "never";
   const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
@@ -43,74 +59,64 @@ function formatTimestamp(value: string | null): string {
   return date.toLocaleString();
 }
 
-export function FinalPageCard({
-  scene,
-  defaultTab = "images",
+export function FinalCoverCard({
+  storyId,
+  storyboardCoverImageUrl,
+  finalCoverImageUrl,
+  promptPreview,
+  availableCharacters,
+  defaultCharacterId,
+  runHistory,
 }: {
-  scene: FinalPageSceneData;
-  defaultTab?: "images" | "prompt";
+  storyId: string;
+  storyboardCoverImageUrl: string | null;
+  finalCoverImageUrl: string | null;
+  promptPreview: string;
+  availableCharacters: CoverCharacter[];
+  defaultCharacterId: string | null;
+  runHistory: CoverRun[];
 }) {
   const router = useRouter();
   const [isGenerating, startGeneratingTransition] = useTransition();
   const [isSavingPrompt, startSavePromptTransition] = useTransition();
-  const [isApproving, startApproveTransition] = useTransition();
   const [isReusingRunId, setIsReusingRunId] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState(scene.promptPreview);
-  const [savedPromptBase, setSavedPromptBase] = useState(scene.promptPreview);
-  const [characterId, setCharacterId] = useState(scene.defaultCharacterId ?? "__none");
+  const [prompt, setPrompt] = useState(promptPreview);
+  const [savedPromptBase, setSavedPromptBase] = useState(promptPreview);
+  const [characterId, setCharacterId] = useState(defaultCharacterId ?? "__none");
 
+  const selectedCharacter = availableCharacters.find((character) => character.id === characterId);
   const hasUnsavedPrompt = prompt !== savedPromptBase;
-  const storyLinkedCharacter = scene.availableCharacters.find(
-    (candidate) => candidate.id === scene.storyLinkedCharacterId
-  );
-  const selectedCharacter = scene.availableCharacters.find(
-    (candidate) => candidate.id === characterId
-  );
-  const canGenerateWithSelectedCharacter =
-    characterId === "__none"
-      ? Boolean(storyLinkedCharacter?.hasSelectedVariant)
-      : Boolean(selectedCharacter?.hasSelectedVariant);
-  const effectiveCharacterReferenceUrl =
-    characterId === "__none"
-      ? storyLinkedCharacter?.selectedVariantImageUrl ?? null
-      : selectedCharacter?.selectedVariantImageUrl ?? null;
+  const canGenerate = Boolean(storyboardCoverImageUrl && selectedCharacter?.hasSelectedVariant);
 
-  const requestPreview = useMemo(
-    () =>
-      JSON.stringify(
-        {
-          prompt,
-          character_id: characterId === "__none" ? null : characterId,
-          image: effectiveCharacterReferenceUrl
-            ? [scene.storyboardImageUrl, effectiveCharacterReferenceUrl]
-            : [scene.storyboardImageUrl],
-          aspect_ratio: "4:3",
-          output_format: "png",
-        },
-        null,
-        2
-      ),
-    [characterId, effectiveCharacterReferenceUrl, prompt, scene.storyboardImageUrl]
+  const requestPreview = JSON.stringify(
+    {
+      prompt,
+      character_id: characterId === "__none" ? null : characterId,
+      image:
+        storyboardCoverImageUrl && selectedCharacter?.selectedVariantImageUrl
+          ? [storyboardCoverImageUrl, selectedCharacter.selectedVariantImageUrl]
+          : [storyboardCoverImageUrl].filter(Boolean),
+      aspect_ratio: "4:3",
+      output_format: "png",
+    },
+    null,
+    2
   );
 
-  function generatePage() {
+  function generateCover() {
     startGeneratingTransition(async () => {
       const formData = new FormData();
-      formData.set("storyId", scene.storyId);
-      formData.set("sceneId", scene.sceneId);
+      formData.set("storyId", storyId);
+      formData.set("promptOverride", prompt);
       if (characterId !== "__none") {
         formData.set("characterId", characterId);
       }
-      if (hasUnsavedPrompt) {
-        formData.set("promptOverride", prompt);
-      }
-      const result = await generateFinalPageAction(formData);
+      const result = await generateFinalCoverAction(formData);
       if (!result.success) {
         toast.error(result.error);
-        router.refresh();
         return;
       }
-      toast.success(scene.latestImageUrl ? "Page regenerated" : "Page generated");
+      toast.success(finalCoverImageUrl ? "Cover regenerated" : "Cover generated");
       router.refresh();
     });
   }
@@ -118,19 +124,18 @@ export function FinalPageCard({
   function savePromptDraft() {
     startSavePromptTransition(async () => {
       const formData = new FormData();
-      formData.set("storyId", scene.storyId);
-      formData.set("sceneId", scene.sceneId);
+      formData.set("storyId", storyId);
       formData.set("promptOverride", prompt);
       if (characterId !== "__none") {
         formData.set("characterId", characterId);
       }
-      const result = await saveFinalPagePromptDraftAction(formData);
+      const result = await saveFinalCoverPromptDraftAction(formData);
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       setSavedPromptBase(prompt);
-      toast.success("Prompt draft saved");
+      toast.success("Final cover prompt draft saved");
       router.refresh();
     });
   }
@@ -139,36 +144,18 @@ export function FinalPageCard({
     setIsReusingRunId(runArtifactId);
     startGeneratingTransition(async () => {
       const formData = new FormData();
-      formData.set("storyId", scene.storyId);
-      formData.set("sceneId", scene.sceneId);
+      formData.set("storyId", storyId);
       formData.set("runArtifactId", runArtifactId);
       if (characterId !== "__none") {
         formData.set("characterId", characterId);
       }
-      const result = await generateFinalPageFromRunAction(formData);
+      const result = await generateFinalCoverFromRunAction(formData);
       setIsReusingRunId(null);
       if (!result.success) {
         toast.error(result.error);
-        router.refresh();
         return;
       }
-      toast.success("Page regenerated from selected run");
-      router.refresh();
-    });
-  }
-
-  function approveVersion(finalPageId: string, approved: boolean) {
-    startApproveTransition(async () => {
-      const formData = new FormData();
-      formData.set("storyId", scene.storyId);
-      formData.set("finalPageId", finalPageId);
-      formData.set("approved", approved ? "true" : "false");
-      const result = await approveFinalPageVersionAction(formData);
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(approved ? "Version approved" : "Approval removed");
+      toast.success("Cover regenerated from selected run");
       router.refresh();
     });
   }
@@ -178,9 +165,9 @@ export function FinalPageCard({
       <CardHeader className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base">Scene {scene.sceneNumber}</CardTitle>
+            <CardTitle>Final Cover (Personalized)</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Latest version: {scene.latestVersion ?? "none"}
+              Start from storyboard cover sketch and apply selected character identity.
             </p>
           </div>
 
@@ -212,23 +199,20 @@ export function FinalPageCard({
               </DialogTrigger>
               <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Run history</DialogTitle>
+                  <DialogTitle>Final cover run history</DialogTitle>
                   <DialogDescription>
-                    Recent final page generation attempts for this scene.
+                    Recent final cover generation attempts.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[60vh] space-y-2 overflow-auto">
-              {scene.runHistory.length === 0 ? (
+                  {runHistory.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No previous runs yet.</p>
                   ) : (
-                    scene.runHistory.map((run) => (
+                    runHistory.map((run) => (
                       <div key={run.id} className="space-y-1 rounded-md border p-2 text-xs">
                         <p className="text-muted-foreground">
                           {run.status ?? "unknown"} · {formatTimestamp(run.createdAt)}
                         </p>
-                        {run.characterName ? (
-                          <p className="text-muted-foreground">character: {run.characterName}</p>
-                        ) : null}
                         {run.errorMessage ? (
                           <p className="text-destructive">error: {run.errorMessage}</p>
                         ) : null}
@@ -276,31 +260,12 @@ export function FinalPageCard({
                 </div>
               </DialogContent>
             </Dialog>
-
-            <Button
-              type="button"
-              variant={scene.latestImageUrl ? "outline" : "default"}
-              size="sm"
-              onClick={generatePage}
-              disabled={isGenerating || isSavingPrompt || !canGenerateWithSelectedCharacter}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  {scene.latestImageUrl ? "Regenerating..." : "Generating..."}
-                </>
-              ) : scene.latestImageUrl ? (
-                "Regenerate Page"
-              ) : (
-                "Generate Page"
-              )}
-            </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-3">
-        <Tabs defaultValue={defaultTab} className="w-full">
+        <Tabs defaultValue="images" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="images">Images</TabsTrigger>
             <TabsTrigger value="prompt">Character + Prompt</TabsTrigger>
@@ -309,154 +274,121 @@ export function FinalPageCard({
           <TabsContent value="images" className="space-y-3 pt-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Storyboard reference</p>
+                <p className="text-xs font-medium text-muted-foreground">Storyboard Cover Sketch</p>
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-                  {scene.storyboardImageUrl ? (
+                  {storyboardCoverImageUrl ? (
                     <Image
-                      src={scene.storyboardImageUrl}
-                      alt={`Storyboard scene ${scene.sceneNumber}`}
+                      src={storyboardCoverImageUrl}
+                      alt="Storyboard cover sketch"
                       fill
                       className="object-contain"
                       unoptimized
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                      No storyboard image
+                      Generate storyboard cover first.
                     </div>
                   )}
                 </div>
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Latest final page</p>
+                <p className="text-xs font-medium text-muted-foreground">Final Personalized Cover</p>
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-                  {scene.latestImageUrl ? (
+                  {finalCoverImageUrl ? (
                     <Image
-                      src={scene.latestImageUrl}
-                      alt={`Final page scene ${scene.sceneNumber}`}
+                      src={finalCoverImageUrl}
+                      alt="Final personalized cover"
                       fill
                       className="object-contain"
                       unoptimized
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                      No final page yet
+                      No final cover yet.
                     </div>
                   )}
                 </div>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-medium">Versions</p>
-              {scene.versions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No versions yet.</p>
-              ) : (
-                <div className="space-y-1">
-                  {scene.versions
-                    .slice()
-                    .sort((a, b) => b.version - a.version)
-                    .map((versionRow) => (
-                      <div
-                        key={versionRow.id}
-                        className="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
-                      >
-                        <span>
-                          v{versionRow.version}
-                          {versionRow.isApproved ? " (approved)" : ""}
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={versionRow.isApproved ? "secondary" : "outline"}
-                          onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
-                          disabled={isApproving}
-                        >
-                          {versionRow.isApproved ? "Unapprove" : "Approve"}
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
           </TabsContent>
 
           <TabsContent value="prompt" className="space-y-3 pt-3">
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p>Spread: {scene.spreadText ?? "none"}</p>
-              <p>Scene: {scene.sceneDescription ?? "none"}</p>
-            </div>
-
             <div className="grid gap-1">
-              <Label htmlFor={`final-page-character-${scene.sceneId}`}>
-                Character for this generation
-              </Label>
+              <Label htmlFor={`cover-character-${storyId}`}>Character</Label>
               <Select value={characterId} onValueChange={setCharacterId}>
-                <SelectTrigger id={`final-page-character-${scene.sceneId}`} className="w-full">
+                <SelectTrigger id={`cover-character-${storyId}`}>
                   <SelectValue placeholder="Select character" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">Use story linked character</SelectItem>
-                  {scene.availableCharacters.map((character) => (
+                  <SelectItem value="__none">No character selected</SelectItem>
+                  {availableCharacters.map((character) => (
                     <SelectItem key={character.id} value={character.id}>
-                      {character.name}
-                      {character.hasSelectedVariant ? "" : " (no selected image)"}
+                      {character.name} ({character.status})
+                      {character.hasSelectedVariant ? "" : " - no selected variant"}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {characterId !== "__none" && selectedCharacter?.hasSelectedVariant === false ? (
-                <p className="text-xs text-amber-600">
-                  Selected character has no selected variant. Choose a variant on the character page.
-                </p>
-              ) : characterId === "__none" && !scene.hasStoryLinkedCharacter ? (
-                <p className="text-xs text-amber-600">
-                  No character is linked to this story. Pick a character above to generate this page.
-                </p>
-              ) : characterId === "__none" && !storyLinkedCharacter?.hasSelectedVariant ? (
-                <p className="text-xs text-amber-600">
-                  Story-linked character has no selected variant. Choose one on the character page or
-                  pick another character here.
-                </p>
-              ) : null}
             </div>
 
             <div className="grid gap-1">
-              <Label htmlFor={`final-page-prompt-${scene.sceneId}`}>
-                Exact prompt sent to NanoBanana
-              </Label>
+              <Label htmlFor={`cover-prompt-${storyId}`}>Exact prompt sent to NanoBanana</Label>
               <Textarea
-                id={`final-page-prompt-${scene.sceneId}`}
+                id={`cover-prompt-${storyId}`}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 rows={8}
                 className="text-xs"
               />
             </div>
+
+            {!canGenerate ? (
+              <p className="text-xs text-amber-600">
+                Requires storyboard cover sketch and selected character variant.
+              </p>
+            ) : null}
             {hasUnsavedPrompt ? (
               <p className="text-xs text-amber-600">Unsaved prompt changes</p>
             ) : null}
 
-            <Button
-              type="button"
-              variant={hasUnsavedPrompt ? "default" : "secondary"}
-              onClick={savePromptDraft}
-              disabled={
-                isSavingPrompt ||
-                isGenerating ||
-                !hasUnsavedPrompt ||
-                !canGenerateWithSelectedCharacter
-              }
-            >
-              {isSavingPrompt ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Saving Prompt...
-                </>
-              ) : (
-                "Save Prompt Draft"
-              )}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={finalCoverImageUrl ? "outline" : "default"}
+                size="sm"
+                onClick={generateCover}
+                disabled={isGenerating || isSavingPrompt || !canGenerate}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    {finalCoverImageUrl ? "Regenerating..." : "Generating..."}
+                  </>
+                ) : finalCoverImageUrl ? (
+                  "Regenerate Cover"
+                ) : (
+                  "Generate Cover"
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant={hasUnsavedPrompt ? "default" : "secondary"}
+                onClick={savePromptDraft}
+                size="sm"
+                disabled={isSavingPrompt || isGenerating || !hasUnsavedPrompt}
+              >
+                {isSavingPrompt ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Saving Prompt...
+                  </>
+                ) : (
+                  "Save Prompt Draft"
+                )}
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

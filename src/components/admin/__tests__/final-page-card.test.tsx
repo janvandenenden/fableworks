@@ -21,14 +21,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/image", () => ({
-  default: (props: Record<string, unknown>) => (
-    // eslint-disable-next-line jsx-a11y/alt-text
-    <img
-      {...Object.fromEntries(
-        Object.entries(props).filter(([key]) => key !== "fill" && key !== "unoptimized")
-      )}
-    />
-  ),
+  default: (props: Record<string, unknown>) => {
+    const cleanProps = Object.fromEntries(
+      Object.entries(props).filter(([key]) => key !== "fill" && key !== "unoptimized")
+    );
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img {...cleanProps} alt={typeof props.alt === "string" ? props.alt : ""} />
+    );
+  },
 }));
 
 vi.mock("sonner", () => ({

@@ -230,5 +230,6 @@ npm run test:e2e           # Run Playwright
 - [x] Phase 3: Story Generation
 - [x] Phase 4: Props Bible Creation
 - [x] Phase 5: Storyboard Generation
-- [ ] Phase 6: Final Page Generation (current)
-- [ ] Phase 7: Output, Purchase & Delivery
+- [x] Phase 6: Final Page Generation
+- [x] Phase 7: Internal Fulfillment
+- [ ] Phase 8: Customer Commerce UX (Stripe + Buyer Flow) (current)

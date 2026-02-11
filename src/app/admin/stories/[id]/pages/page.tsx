@@ -1,11 +1,22 @@
 import Link from "next/link";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { CircleHelp } from "lucide-react";
 import { db, schema } from "@/db";
 import { FinalPagesView } from "@/components/admin/final-pages-view";
 import { FinalPagesBulkControls } from "@/components/admin/final-pages-bulk-controls";
+import { FinalCoverCard } from "@/components/admin/final-cover-card";
+import { generateBookPdfAction } from "@/app/admin/books/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { buildFinalPagePrompt } from "@/lib/prompts/final-page";
 
 function parseSceneNumbers(value: string | null): number[] {
@@ -167,6 +178,28 @@ export default async function FinalPagesPage({
             )
           )
       : [];
+  const coverPromptArtifacts = await db
+    .select({
+      id: schema.promptArtifacts.id,
+      entityId: schema.promptArtifacts.entityId,
+      status: schema.promptArtifacts.status,
+      errorMessage: schema.promptArtifacts.errorMessage,
+      rawPrompt: schema.promptArtifacts.rawPrompt,
+      parameters: schema.promptArtifacts.parameters,
+      resultUrl: schema.promptArtifacts.resultUrl,
+      createdAt: schema.promptArtifacts.createdAt,
+      entityType: schema.promptArtifacts.entityType,
+    })
+    .from(schema.promptArtifacts)
+    .where(
+      and(
+        eq(schema.promptArtifacts.entityId, id),
+        inArray(schema.promptArtifacts.entityType, [
+          "final_cover_image",
+          "final_cover_prompt_draft",
+        ])
+      )
+    );
 
   const runHistoryBySceneId = new Map<
     string,
@@ -212,6 +245,49 @@ export default async function FinalPagesPage({
       }
     }
   }
+  const finalCoverRuns = coverPromptArtifacts
+    .filter((artifact) => artifact.entityType === "final_cover_image")
+    .sort((a, b) => (toSafeTimestamp(b.createdAt) ?? 0) - (toSafeTimestamp(a.createdAt) ?? 0))
+    .slice(0, 10)
+    .map((artifact) => ({
+      id: artifact.id,
+      status: artifact.status ?? null,
+      errorMessage: artifact.errorMessage ?? null,
+      rawPrompt: artifact.rawPrompt,
+      parameters: (() => {
+        if (!artifact.parameters) return null;
+        if (typeof artifact.parameters === "string") return artifact.parameters;
+        try {
+          return JSON.stringify(artifact.parameters, null, 2);
+        } catch {
+          return null;
+        }
+      })(),
+      resultUrl: artifact.resultUrl ?? null,
+      createdAt: toSafeIsoString(artifact.createdAt),
+    }));
+  const latestFinalCoverPromptDraft = coverPromptArtifacts
+    .filter((artifact) => artifact.entityType === "final_cover_prompt_draft")
+    .sort((a, b) => (toSafeTimestamp(b.createdAt) ?? 0) - (toSafeTimestamp(a.createdAt) ?? 0))[0];
+  const coverAssets = await db
+    .select({
+      type: schema.generatedAssets.type,
+      storageUrl: schema.generatedAssets.storageUrl,
+      createdAt: schema.generatedAssets.createdAt,
+    })
+    .from(schema.generatedAssets)
+    .where(
+      and(
+        eq(schema.generatedAssets.entityId, id),
+        inArray(schema.generatedAssets.type, ["story_cover", "final_cover_image"])
+      )
+    )
+    .orderBy(asc(schema.generatedAssets.createdAt));
+  const latestStoryboardCoverImageUrl =
+    [...coverAssets].reverse().find((asset) => asset.type === "story_cover")?.storageUrl ?? null;
+  const latestFinalCoverImageUrl =
+    [...coverAssets].reverse().find((asset) => asset.type === "final_cover_image")?.storageUrl ??
+    null;
 
   const selectedImageRows =
     story.characterId
@@ -387,6 +463,11 @@ export default async function FinalPagesPage({
   const hasAnySelectableCharacter = availableCharacters.some(
     (character) => character.hasSelectedVariant
   );
+  const hasFinalPageForEveryScene =
+    scenes.length > 0 &&
+    sceneViewData.every((scene) =>
+      scene.versions.some((version) => Boolean(version.imageUrl))
+    );
   const bulkDefaultCharacterId = (() => {
     if (story.characterId && selectedVariantByCharacterId.has(story.characterId)) {
       return story.characterId;
@@ -402,6 +483,17 @@ export default async function FinalPagesPage({
   const canUseStoryLinkedCharacter = Boolean(
     story.characterId && selectedVariantByCharacterId.has(story.characterId)
   );
+  const coverDefaultCharacterId = bulkDefaultCharacterId;
+  const coverPromptPreview =
+    latestFinalCoverPromptDraft?.rawPrompt?.trim() ||
+    finalCoverRuns[0]?.rawPrompt ||
+    [
+      "Create a polished children-book front cover illustration.",
+      `Title context: ${story.title?.trim() || "Untitled Story"}`,
+      "Use storyboard cover sketch as composition reference.",
+      "Use selected character reference image to preserve identity.",
+      "No text, logos, watermark, signatures, frame, or border.",
+    ].join("\n");
 
   return (
     <div className="space-y-6">
@@ -442,6 +534,66 @@ export default async function FinalPagesPage({
                 <Link href={`/admin/stories/${id}/storyboard`}>Open Storyboard</Link>
               </Button>
             </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <FinalCoverCard
+        key={`${id}:${latestFinalCoverImageUrl ?? "no-final-cover"}:${coverDefaultCharacterId ?? "__none"}:${coverPromptPreview}`}
+        storyId={id}
+        storyboardCoverImageUrl={latestStoryboardCoverImageUrl}
+        finalCoverImageUrl={latestFinalCoverImageUrl}
+        promptPreview={coverPromptPreview}
+        availableCharacters={availableCharacters}
+        defaultCharacterId={coverDefaultCharacterId}
+        runHistory={finalCoverRuns}
+      />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CardTitle>Print Export (Interior.pdf + Cover.pdf)</CardTitle>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="size-7" title="What are these files?">
+                  <CircleHelp className="size-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>What these files are</DialogTitle>
+                  <DialogDescription>
+                    <strong>Interior.pdf</strong> is the printable inside pages.{" "}
+                    <strong>Cover.pdf</strong> is the printable outer cover file for Lulu.
+                    <br />
+                    <br />
+                    The <strong>Final Cover (Personalized)</strong> step above creates the cover artwork image.
+                    This export step packages that artwork into print-ready PDF files.
+                  </DialogDescription>
+                </DialogHeader>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Generate the Lulu-ready interior and cover PDFs from current final page versions.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <form action={generateBookPdfAction}>
+              <input type="hidden" name="storyId" value={id} />
+              <Button type="submit" size="sm" disabled={!hasFinalPageForEveryScene}>
+                Generate Interior + Cover PDFs
+              </Button>
+            </form>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/admin/books/${id}`}>Open Fulfillment</Link>
+            </Button>
+          </div>
+          {!hasFinalPageForEveryScene ? (
+            <p className="text-xs text-amber-600">
+              Generate at least one final page for each scene first.
+            </p>
           ) : null}
         </CardContent>
       </Card>
