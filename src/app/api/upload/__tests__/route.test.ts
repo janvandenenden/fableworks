@@ -1,0 +1,52 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  mockUploadToR2: vi.fn(async () => "https://cdn.example.com/foo.png"),
+  mockGetPublicBaseUrl: vi.fn(() => "https://cdn.example.com"),
+}));
+
+vi.mock("@/lib/r2", () => ({
+  uploadToR2: mocks.mockUploadToR2,
+  getPublicBaseUrl: mocks.mockGetPublicBaseUrl,
+}));
+
+import { POST } from "@/app/api/upload/route";
+
+describe("upload route", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns publicUrl for json request", async () => {
+    const request = new Request("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "uploads/test.png" }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.publicUrl).toBe("https://cdn.example.com/uploads/test.png");
+  });
+
+  it("uploads file via form-data", async () => {
+    const formData = new FormData();
+    const file = new Blob(["hello"], { type: "image/png" });
+    formData.append("file", file, "test.png");
+    formData.append("key", "uploads/test.png");
+
+    const request = new Request("http://localhost/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.publicUrl).toBe("https://cdn.example.com/foo.png");
+    expect(mocks.mockUploadToR2).toHaveBeenCalled();
+  });
+});

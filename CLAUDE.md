@@ -221,6 +221,8 @@ npm run test:e2e           # Run Playwright
 
 **Per-phase planning guardrail:** Before starting any phase, check for a dedicated plan file (e.g., `PHASE2_PLAN.md`). If it’s missing, pause, prompt the user to generate one (plan mode), and commit that plan before implementation work begins.
 
+**Lesson learned (Phase 2):** Replicate’s `run()` may not return final image URLs immediately. Prefer creating a prediction and polling (or handling webhooks) so async generation completes before persisting results. Also normalize JSON outputs and serialize arrays for SQLite.
+
 ## Phase Tracking
 
 - [x] Phase 1: Project Setup

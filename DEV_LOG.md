@@ -71,3 +71,87 @@
 - Admin playground page renders with model selector, prompt input, generate button
 
 ---
+
+## 2026-02-10 -- Phase 2: DB setup kickoff
+
+### Actions
+- Created Phase 2 detailed plan (`PHASE2_PLAN.md`) and updated CLAUDE guardrails to require per-phase plans before implementation.
+- Added Drizzle schema for all core tables (`src/db/schema.ts`) and sqlite connector (`src/db/index.ts`).
+- Added Drizzle config (`drizzle.config.ts`) targeting local SQLite.
+- Installed `better-sqlite3` dependency (Node 18 emits engine warnings but install succeeded).
+- Generated initial migration (`drizzle/0000_elite_rumiko_fujikawa.sql`) and applied it to `local.db` via `npx drizzle-kit generate && npx drizzle-kit migrate`.
+
+### Problems & Resolutions
+1. **SQLite default UUID expression rejected:** Using `randomblob` in DEFAULT caused migration parse errors. Removed default UUID generation and require IDs to be supplied by the app. Regenerated migration and applied successfully.
+
+### Next Steps
+- Add R2 helper functions and Inngest scaffolding.
+- Build admin character UI (list + detail) and server actions.
+
+---
+
+## 2026-02-10 -- Phase 2: R2 helpers + prompts + Inngest scaffolding (intent)
+
+### Intent
+- Expand `src/lib/r2.ts` helpers and tests.
+- Add character prompt builder and tests.
+- Add Inngest client + function stubs for character generation.
+
+### Actions (summary)
+- Implemented R2 upload flow (server-side), character pipeline via Inngest, and admin UI for create/detail/profile/gallery/regenerate/delete.
+- Hardened character generation (vision parsing, sqlite-safe inserts, Replicate polling and output handling).
+- Added tests: unit (actions, generate-character polling/profile reuse, upload route) and Playwright E2E (creation, generation skipped).
+### Actions (detailed)
+- Added character prompt builder with style presets (`src/lib/prompts/character.ts`) and tests.
+- Added Inngest client (`src/inngest/client.ts`), persist-replicate-output function, and function registry.
+- Added Inngest Next.js route handler (`src/app/api/inngest/route.ts`).
+- Added `generate-character` Inngest function to run vision, store profile, generate art via Replicate, persist image, and update status.
+- Added admin characters list + detail pages and server action to create characters and fire generation events.
+- Added upload API route that returns presigned R2 upload URLs.
+- Added initial unit test for `generate-character` Inngest function with mocked dependencies.
+- Updated character form to upload a child photo to R2 and store the public URL using `{userId}/{characterId}` key structure.
+- Switched upload flow to send file through `/api/upload` (server-side upload) to avoid browser CORS issues.
+- Improved upload route error reporting and blob handling to diagnose form-data issues.
+- Normalized character creation to avoid setting `userId` when running locally without users, preventing FK failures.
+- Updated character creation to proceed even if Inngest event send fails, and route to detail page on success.
+- Fixed Next.js dynamic params handling for character detail route (awaited `params`).
+- Added character detail UI to show profile fields, status badge, and generated image gallery.
+- Fixed SQLite binding errors by serializing JSON arrays before inserting character profiles.
+- Added regenerate and delete actions for characters and surfaced controls on the detail page.
+- Forced Inngest route to use node runtime for better-sqlite3 compatibility.
+- Fixed Inngest character status updates to use direct `eq(...)` filters to avoid sqlite binding errors.
+- Stripped code fences from OpenAI vision output before JSON parsing in character generation.
+- Upserted character profiles on regenerate and improved Replicate output parsing/error handling.
+- Loosened vision profile parsing to coerce numbers into strings and expanded Replicate URL extraction.
+- Persisted Replicate raw output snapshot to `prompt_artifacts.parameters` for debugging when no image URL is extracted.
+- Expanded Replicate URL extraction (handles `image` and string outputs) and mark prompts as running.
+- Added Replicate output handling for FileOutput/url()/href and ensured prompt failures are recorded if Replicate run throws.
+- Switched character generation to create and poll Replicate predictions until completed.
+- Added auto-refresh + progress indicator on character detail while generation is running.
+- Set new character status to `generating` on creation so auto-refresh/loader shows immediately.
+- Added character gallery with image selection action.
+- Added profile editor + regenerate-images-only flow to reuse the saved profile.
+- Hid profile editor behind an Edit button and added source image preview in details.
+- Replaced duplicate style selectors with a single regenerate control.
+- Refactored regenerate controls to a server form to avoid client/server action conflicts.
+- Added confirm dialog for deleting characters.
+- Added unit tests for character actions (regenerate/delete).
+- Expanded generate-character tests to cover Replicate polling and profile reuse.
+- Added tests for profile update action.
+- Added tests for upload API route (json + multipart).
+- Added Playwright E2E test for character creation (skips actual generation).
+- Documented Inngest skip in E2E test note.
+- Fixed build error by avoiding reassignment of const payload when checking existing profile.
+- Refactored generate-character handler for direct test invocation and fixed upload route test to use Blob.
+- Fixed upload route test mocking with vitest hoisted mocks.
+- Fixed generate-character test mock chain for onConflictDoUpdate.
+- Made generate-character test insert mock synchronous to support onConflict chain.
+- Adjusted E2E test to use an existing public asset for file upload.
+### Problems & Resolutions (detailed)
+1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
+2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.
+3. **Next.js params Promise in dynamic route:** Awaited `params` in detail page.
+4. **SQLite binding errors with arrays and where callbacks:** Serialized JSON arrays before insert; replaced callback-style `where` with `eq(...)`.
+5. **OpenAI Vision JSON formatting:** Stripped code fences; coerced numeric fields to strings.
+6. **Replicate output shape variance:** Expanded URL extraction (array/object/FileOutput/url()) and recorded raw output for debugging.
+7. **Replicate returning pending output:** Switched to create/poll prediction until completed.

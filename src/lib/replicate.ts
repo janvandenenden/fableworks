@@ -56,7 +56,118 @@ export async function createPrediction(
 
 export function extractImageUrl(output: unknown): string | null {
   if (typeof output === "string") return output;
-  if (Array.isArray(output) && typeof output[0] === "string") return output[0];
+  if (Array.isArray(output)) {
+    const first = output[0] as unknown;
+    if (typeof first === "string") return first;
+    if (
+      first &&
+      typeof first === "object" &&
+      "url" in first &&
+      typeof (first as { url: unknown }).url === "string"
+    ) {
+      return (first as { url: string }).url;
+    }
+    if (
+      first &&
+      typeof first === "object" &&
+      "image" in first &&
+      typeof (first as { image: unknown }).image === "string"
+    ) {
+      return (first as { image: string }).image;
+    }
+    if (
+      first &&
+      typeof first === "object" &&
+      "url" in first &&
+      typeof (first as { url: unknown }).url === "function"
+    ) {
+      return String((first as { url: () => unknown }).url());
+    }
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "image" in output &&
+    typeof (output as { image: unknown }).image === "string"
+  ) {
+    return (output as { image: string }).image;
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "url" in output &&
+    typeof (output as { url: unknown }).url === "function"
+  ) {
+    return String((output as { url: () => unknown }).url());
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "href" in output &&
+    typeof (output as { href: unknown }).href === "string"
+  ) {
+    return (output as { href: string }).href;
+  }
+  if (output && typeof output === "object") {
+    const asString = String(output);
+    if (asString.startsWith("http")) return asString;
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "output" in output &&
+    Array.isArray((output as { output: unknown }).output)
+  ) {
+    const value = (output as { output: unknown }).output;
+    if (Array.isArray(value)) {
+      const first = value[0] as unknown;
+      if (typeof first === "string") return first;
+      if (
+        first &&
+        typeof first === "object" &&
+        "url" in first &&
+        typeof (first as { url: unknown }).url === "string"
+      ) {
+        return (first as { url: string }).url;
+      }
+      if (
+        first &&
+        typeof first === "object" &&
+        "image" in first &&
+        typeof (first as { image: unknown }).image === "string"
+      ) {
+        return (first as { image: string }).image;
+      }
+    }
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "output" in output &&
+    typeof (output as { output: unknown }).output === "string"
+  ) {
+    return (output as { output: string }).output;
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "images" in output &&
+    Array.isArray((output as { images: unknown }).images)
+  ) {
+    const value = (output as { images: unknown }).images;
+    if (Array.isArray(value)) {
+      const first = value[0] as unknown;
+      if (typeof first === "string") return first;
+      if (
+        first &&
+        typeof first === "object" &&
+        "url" in first &&
+        typeof (first as { url: unknown }).url === "string"
+      ) {
+        return (first as { url: string }).url;
+      }
+    }
+  }
   if (
     output &&
     typeof output === "object" &&
