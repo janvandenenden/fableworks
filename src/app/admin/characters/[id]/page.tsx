@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
 import { desc, eq } from "drizzle-orm";
-import { deleteCharacterAction } from "@/app/admin/characters/actions";
+import { CharacterDeleteButton } from "@/components/admin/character-delete-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,16 +81,7 @@ export default async function CharacterDetailPage({ params }: Props) {
 
       <div className="flex flex-wrap items-center gap-3">
         <CharacterRegenerateControls characterId={id} />
-        <form
-          action={async () => {
-            "use server";
-            await deleteCharacterAction(id);
-          }}
-        >
-          <Button type="submit" variant="destructive">
-            Delete
-          </Button>
-        </form>
+        <CharacterDeleteButton characterId={id} />
       </div>
 
       {isGenerating ? (

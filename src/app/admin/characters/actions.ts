@@ -212,7 +212,12 @@ export async function updateCharacterProfileAction(
   }
 }
 
-export async function deleteCharacterAction(id: string) {
+export async function deleteCharacterAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) {
+    redirect("/admin/characters");
+  }
+
   await db
     .delete(schema.characterImages)
     .where(eq(schema.characterImages.characterId, id));
@@ -222,7 +227,9 @@ export async function deleteCharacterAction(id: string) {
   await db
     .delete(schema.promptArtifacts)
     .where(eq(schema.promptArtifacts.entityId, id));
-  await db.delete(schema.generatedAssets).where(eq(schema.generatedAssets.entityId, id));
+  await db
+    .delete(schema.generatedAssets)
+    .where(eq(schema.generatedAssets.entityId, id));
   await db.delete(schema.characters).where(eq(schema.characters.id, id));
 
   revalidatePath("/admin/characters");
