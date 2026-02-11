@@ -127,6 +127,7 @@
 - Set new character status to `generating` on creation so auto-refresh/loader shows immediately.
 - Added character gallery with image selection action.
 - Added profile editor + regenerate-images-only flow to reuse the saved profile.
+- Fixed build error by avoiding reassignment of const payload when checking existing profile.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
 2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.

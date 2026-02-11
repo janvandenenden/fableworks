@@ -82,7 +82,8 @@ export const generateCharacter = inngest.createFunction(
     ].join(" ");
 
     let parsedProfile: z.infer<typeof visionProfileSchema>;
-    if (payload.useExistingProfile) {
+    let useExistingProfile = payload.useExistingProfile ?? false;
+    if (useExistingProfile) {
       const existing = await step.run("load-profile", () =>
         db
           .select()
@@ -112,11 +113,11 @@ export const generateCharacter = inngest.createFunction(
           rawVisionDescription: row.rawVisionDescription,
         });
       } else {
-        payload = { ...payload, useExistingProfile: false };
+        useExistingProfile = false;
       }
     }
 
-    if (!payload.useExistingProfile) {
+    if (!useExistingProfile) {
       const visionResponse = await step.run("vision-profile", () =>
         analyzeImage(payload.sourceImageUrl, visionPrompt, {
           model: "gpt-4o",
@@ -166,7 +167,7 @@ export const generateCharacter = inngest.createFunction(
       rawVisionDescription: parsedProfile.rawVisionDescription ?? null,
     };
 
-    if (!payload.useExistingProfile) {
+    if (!useExistingProfile) {
       await step.run("store-profile", () =>
         db
           .insert(schema.characterProfiles)
