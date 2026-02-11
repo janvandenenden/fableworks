@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-auto-refresh";
+import { CharacterGallery } from "@/components/admin/character-gallery";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -172,33 +173,14 @@ export default async function CharacterDetailPage({ params }: Props) {
           <CardTitle>Generated images</CardTitle>
         </CardHeader>
         <CardContent>
-          {images.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No generated images yet.
-            </p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {images.map((image) => (
-                <div
-                  key={image.id}
-                  className="overflow-hidden rounded-lg border bg-muted/20"
-                >
-                  <div className="relative aspect-[4/5] w-full">
-                    <Image
-                      src={image.imageUrl}
-                      alt={`Character ${item.name}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                  <div className="p-3 text-xs text-muted-foreground">
-                    {image.isSelected ? "Selected" : "Variant"}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <CharacterGallery
+            characterId={id}
+            images={images.map((image) => ({
+              id: image.id,
+              imageUrl: image.imageUrl,
+              isSelected: image.isSelected,
+            }))}
+          />
         </CardContent>
       </Card>
     </div>

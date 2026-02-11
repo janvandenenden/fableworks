@@ -132,3 +132,27 @@ export async function deleteCharacterAction(id: string) {
   revalidatePath("/admin/characters");
   redirect("/admin/characters");
 }
+
+export async function selectCharacterImageAction(
+  characterId: string,
+  imageId: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await db
+      .update(schema.characterImages)
+      .set({ isSelected: false })
+      .where(eq(schema.characterImages.characterId, characterId));
+
+    await db
+      .update(schema.characterImages)
+      .set({ isSelected: true })
+      .where(eq(schema.characterImages.id, imageId));
+
+    revalidatePath(`/admin/characters/${characterId}`);
+    return { success: true, data: { id: imageId } };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to select image";
+    return { success: false, error: message };
+  }
+}
