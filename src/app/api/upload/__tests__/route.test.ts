@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST } from "@/app/api/upload/route";
 
-const mockUploadToR2 = vi.fn(async () => "https://cdn.example.com/foo.png");
-const mockGetPublicBaseUrl = vi.fn(() => "https://cdn.example.com");
+const mocks = vi.hoisted(() => ({
+  mockUploadToR2: vi.fn(async () => "https://cdn.example.com/foo.png"),
+  mockGetPublicBaseUrl: vi.fn(() => "https://cdn.example.com"),
+}));
 
 vi.mock("@/lib/r2", () => ({
-  uploadToR2: mockUploadToR2,
-  getPublicBaseUrl: mockGetPublicBaseUrl,
+  uploadToR2: mocks.mockUploadToR2,
+  getPublicBaseUrl: mocks.mockGetPublicBaseUrl,
 }));
+
+import { POST } from "@/app/api/upload/route";
 
 describe("upload route", () => {
   beforeEach(() => {
@@ -44,6 +47,6 @@ describe("upload route", () => {
 
     expect(body.success).toBe(true);
     expect(body.publicUrl).toBe("https://cdn.example.com/foo.png");
-    expect(mockUploadToR2).toHaveBeenCalled();
+    expect(mocks.mockUploadToR2).toHaveBeenCalled();
   });
 });
