@@ -13,6 +13,25 @@
   - post-purchase re-roll credits model,
   - server-side credit enforcement and anti-abuse controls.
 
+## 2026-02-11 -- Phase 8 implementation (slice 1: customer route scaffold + auth guard)
+
+### Actions
+- Added customer app route group scaffold:
+  - `src/app/(app)/layout.tsx`
+  - `src/app/(app)/create/character/page.tsx`
+  - `src/app/(app)/create/story/page.tsx`
+  - `src/app/(app)/create/checkout/page.tsx`
+  - `src/app/(app)/create/generating/page.tsx`
+  - `src/app/(app)/books/page.tsx`
+  - `src/app/(app)/books/[id]/page.tsx`
+- Added Phase 8 route protection in middleware:
+  - `src/middleware.ts`
+  - when Clerk is configured, `/create/*` and `/books/*` now require authentication.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/lulu.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 7 implementation (slice 6: preflight checklist + Lulu diagnostics history)
 
 ### Actions
