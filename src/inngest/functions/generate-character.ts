@@ -67,11 +67,35 @@ export const generateCharacter = inngest.createFunction(
       JSON.parse(visionResponse)
     );
 
+    const normalizedProfile = {
+      approxAge: parsedProfile.approxAge ?? null,
+      hairColor: parsedProfile.hairColor ?? null,
+      hairLength: parsedProfile.hairLength ?? null,
+      hairTexture: parsedProfile.hairTexture ?? null,
+      hairStyle: parsedProfile.hairStyle ?? null,
+      faceShape: parsedProfile.faceShape ?? null,
+      eyeColor: parsedProfile.eyeColor ?? null,
+      eyeShape: parsedProfile.eyeShape ?? null,
+      skinTone: parsedProfile.skinTone ?? null,
+      clothing: parsedProfile.clothing ?? null,
+      distinctiveFeatures: parsedProfile.distinctiveFeatures ?? null,
+      colorPalette: parsedProfile.colorPalette
+        ? JSON.stringify(parsedProfile.colorPalette)
+        : null,
+      personalityTraits: parsedProfile.personalityTraits
+        ? JSON.stringify(parsedProfile.personalityTraits)
+        : null,
+      doNotChange: parsedProfile.doNotChange
+        ? JSON.stringify(parsedProfile.doNotChange)
+        : null,
+      rawVisionDescription: parsedProfile.rawVisionDescription ?? null,
+    };
+
     await step.run("store-profile", () =>
       db.insert(schema.characterProfiles).values({
         id: newId(),
         characterId: payload.id,
-        ...parsedProfile,
+        ...normalizedProfile,
       })
     );
 
@@ -89,7 +113,25 @@ export const generateCharacter = inngest.createFunction(
       return "storybook";
     })();
 
-    const prompt = buildCharacterPrompt(parsedProfile, stylePreset);
+    const prompt = buildCharacterPrompt(
+      {
+        approxAge: normalizedProfile.approxAge,
+        hairColor: normalizedProfile.hairColor,
+        hairLength: normalizedProfile.hairLength,
+        hairTexture: normalizedProfile.hairTexture,
+        hairStyle: normalizedProfile.hairStyle,
+        faceShape: normalizedProfile.faceShape,
+        eyeColor: normalizedProfile.eyeColor,
+        eyeShape: normalizedProfile.eyeShape,
+        skinTone: normalizedProfile.skinTone,
+        clothing: normalizedProfile.clothing,
+        distinctiveFeatures: normalizedProfile.distinctiveFeatures,
+        colorPalette: parsedProfile.colorPalette ?? null,
+        personalityTraits: parsedProfile.personalityTraits ?? null,
+        doNotChange: parsedProfile.doNotChange ?? null,
+      },
+      stylePreset
+    );
     const promptId = newId();
 
     await step.run("record-prompt", () =>
