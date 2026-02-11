@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { inngest } from "@/inngest/client";
 import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
 import { analyzeImage } from "@/lib/openai";
 import { buildCharacterPrompt } from "@/lib/prompts/character";
 import { MODELS, extractImageUrl, runPrediction } from "@/lib/replicate";
@@ -44,7 +45,7 @@ export const generateCharacter = inngest.createFunction(
       db
         .update(schema.characters)
         .set({ status: "generating" })
-        .where((row, { eq }) => eq(row.id, payload.id))
+        .where(eq(schema.characters.id, payload.id))
     );
 
     const visionPrompt = [
@@ -71,7 +72,7 @@ export const generateCharacter = inngest.createFunction(
         db
           .update(schema.characters)
           .set({ status: "draft" })
-          .where((row, { eq }) => eq(row.id, payload.id))
+          .where(eq(schema.characters.id, payload.id))
       );
       throw error;
     }
@@ -184,14 +185,14 @@ export const generateCharacter = inngest.createFunction(
       db
         .update(schema.characters)
         .set({ status: "ready" })
-        .where((row, { eq }) => eq(row.id, payload.id))
+        .where(eq(schema.characters.id, payload.id))
     );
 
     await step.run("mark-prompt-success", () =>
       db
         .update(schema.promptArtifacts)
         .set({ status: "success", resultUrl: imageUrl })
-        .where((row, { eq }) => eq(row.id, promptId))
+        .where(eq(schema.promptArtifacts.id, promptId))
     );
 
     return { imageUrl };

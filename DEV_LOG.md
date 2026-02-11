@@ -115,3 +115,4 @@
 - Fixed SQLite binding errors by serializing JSON arrays before inserting character profiles.
 - Added regenerate and delete actions for characters and surfaced controls on the detail page.
 - Forced Inngest route to use node runtime for better-sqlite3 compatibility.
+- Fixed Inngest character status updates to use direct `eq(...)` filters to avoid sqlite binding errors.
