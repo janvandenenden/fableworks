@@ -191,21 +191,29 @@ export const generateCharacter = inngest.createFunction(
       })
     );
 
+    const outputSnapshot = (() => {
+      try {
+        return JSON.stringify(predictionOutput).slice(0, 4000);
+      } catch {
+        return "unserializable output";
+      }
+    })();
+
+    await step.run("record-output", () =>
+      db
+        .update(schema.promptArtifacts)
+        .set({ parameters: outputSnapshot })
+        .where(eq(schema.promptArtifacts.id, promptId))
+    );
+
     const tempUrl = extractImageUrl(predictionOutput);
     if (!tempUrl) {
-      const outputSnippet = (() => {
-        try {
-          return JSON.stringify(predictionOutput).slice(0, 1000);
-        } catch {
-          return "unserializable output";
-        }
-      })();
       await step.run("mark-prompt-failed", () =>
         db
           .update(schema.promptArtifacts)
           .set({
             status: "failed",
-            errorMessage: `Replicate did not return an image URL. Output: ${outputSnippet}`,
+            errorMessage: `Replicate did not return an image URL. Output: ${outputSnapshot}`,
           })
           .where(eq(schema.promptArtifacts.id, promptId))
       );

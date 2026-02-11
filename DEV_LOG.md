@@ -119,3 +119,4 @@
 - Stripped code fences from OpenAI vision output before JSON parsing in character generation.
 - Upserted character profiles on regenerate and improved Replicate output parsing/error handling.
 - Loosened vision profile parsing to coerce numbers into strings and expanded Replicate URL extraction.
+- Persisted Replicate raw output snapshot to `prompt_artifacts.parameters` for debugging when no image URL is extracted.
