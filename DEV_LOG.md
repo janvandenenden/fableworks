@@ -51,6 +51,24 @@
 1. `npx tsc --noEmit` still fails in this environment due local TypeScript binary resolution:
    - `Cannot find module '../lib/tsc.js'` from `node_modules/.bin/tsc`.
 
+## 2026-02-11 -- Phase 6 implementation (slice 3: story-to-character linking clarity)
+
+### Actions
+- Added explicit story-to-character linking in story metadata editor:
+  - `src/components/admin/story-editor.tsx`
+  - New `Linked character` select field now saves `stories.characterId` via existing save action.
+- Extended story meta update action to persist optional `characterId`:
+  - `src/app/admin/stories/actions.ts`
+  - Supports unlink (`No character linked`) and link updates.
+- Updated story detail page data wiring:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - Loads available characters for selector.
+  - Resolves whether linked character has a selected variant (`character_images.is_selected = true`) and surfaces guidance in editor.
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

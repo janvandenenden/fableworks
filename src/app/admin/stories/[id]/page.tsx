@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db, schema } from "@/db";
@@ -59,6 +59,27 @@ export default async function StoryDetailPage({ params }: Props) {
     })
     .from(schema.propsBibleEntries)
     .where(eq(schema.propsBibleEntries.storyId, id));
+  const characters = await db
+    .select({
+      id: schema.characters.id,
+      name: schema.characters.name,
+      status: schema.characters.status,
+    })
+    .from(schema.characters)
+    .orderBy(desc(schema.characters.createdAt));
+  const selectedCharacterImageRows = story.characterId
+    ? await db
+        .select({ imageUrl: schema.characterImages.imageUrl })
+        .from(schema.characterImages)
+        .where(
+          and(
+            eq(schema.characterImages.characterId, story.characterId),
+            eq(schema.characterImages.isSelected, true)
+          )
+        )
+        .limit(1)
+    : [];
+  const selectedCharacterImageUrl = selectedCharacterImageRows[0]?.imageUrl ?? null;
   const artifacts = await db
     .select()
     .from(schema.promptArtifacts)
@@ -195,7 +216,10 @@ export default async function StoryDetailPage({ params }: Props) {
             id: story.id,
             title: story.title ?? manuscriptData?.title ?? null,
             storyArc: story.storyArc ?? manuscriptData?.arcSummary ?? null,
+            characterId: story.characterId ?? null,
           }}
+          characters={characters}
+          selectedCharacterImageUrl={selectedCharacterImageUrl}
           canRegenerateManuscript
         />
       ) : (

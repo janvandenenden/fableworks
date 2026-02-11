@@ -52,6 +52,7 @@ const updateStoryMetaSchema = z.object({
   title: z.string().optional().nullable(),
   storyArc: z.string().optional().nullable(),
   theme: z.string().optional().nullable(),
+  characterId: z.string().optional().nullable(),
 });
 
 const updateSceneSchema = z.object({
@@ -412,18 +413,25 @@ export async function updateStoryMetaAction(
       title: formData.get("title"),
       storyArc: formData.get("storyArc"),
       theme: formData.get("theme"),
+      characterId: formData.get("characterId"),
     });
 
     const setValues: {
       title: string | null;
       storyArc: string | null;
       theme?: string | null;
+      characterId?: string | null;
     } = {
       title: parsed.title?.trim() || null,
       storyArc: parsed.storyArc?.trim() || null,
     };
     if (formData.has("theme")) {
       setValues.theme = normalizeTheme(parsed.theme);
+    }
+    if (formData.has("characterId")) {
+      const candidate = parsed.characterId?.trim();
+      setValues.characterId =
+        candidate && candidate !== "__none" ? candidate : null;
     }
 
     await db
