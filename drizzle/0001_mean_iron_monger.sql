@@ -1,0 +1,1 @@
+ALTER TABLE `props_bible_entries` ADD `appears_in_scenes` text;

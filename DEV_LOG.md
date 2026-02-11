@@ -1,5 +1,337 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 3 planning kickoff
+
+### Actions
+- Reviewed `PLAN.md`, `PHASE2_PLAN.md`, `CLAUDE.md`, and latest log context.
+- Created `PHASE3_PLAN.md` with detailed execution order, internal generation phases (S0-S4), test plan, and definition of done.
+
+### Open Questions
+- Confirm age range options.
+- Confirm spread count strategy (fixed vs age-based).
+- Confirm whether Phase 3 should stay character-agnostic or optionally link a character at creation time.
+
+### Decisions (confirmed)
+- Age ranges set to `3-5`, `6-8`, `9-12`.
+- Spread count should be dynamic by age range, with a minimum of 12 spreads.
+- Phase 3 story creation remains character-agnostic.
+- Keep prompts/story text compatible with future gender-aware pronoun substitution during personalization.
+
+---
+
+## 2026-02-11 -- Phase 3 implementation (slice 1: prompts + contracts)
+
+### Actions
+- Updated phase tracking in `CLAUDE.md` (Phase 2 complete, Phase 3 current).
+- Created branch `codex/phase-3-story-generation`.
+- Added `src/lib/prompts/story.ts` with:
+  - age range contract (`3-5`, `6-8`, `9-12`)
+  - dynamic spread targets (min 12 baseline, higher targets for older ranges)
+  - prompt builders for concept, full generation, and single-scene regeneration
+  - JSON cleanup/parser helper for fenced model outputs
+  - Zod schemas and parser for normalized story output (snake_case -> camelCase)
+- Added tests in `src/lib/prompts/__tests__/story.test.ts`.
+- Ran targeted tests: `npm run test -- src/lib/prompts/__tests__/story.test.ts` (pass).
+
+### Notes
+- Story prompts now explicitly preserve `{{name}}` placeholder and bias toward neutral phrasing to support later pronoun personalization.
+
+---
+
+## 2026-02-11 -- Phase 3 implementation (slice 2: Inngest story pipeline)
+
+### Actions
+- Added `src/inngest/functions/generate-story.ts` with step-based pipeline:
+  - mark story `generating`
+  - generate concept
+  - generate manuscript/scenes
+  - persist prompt artifacts + scene rows
+  - mark story `scenes_ready`
+  - on error mark story `scenes_failed` and persist failure artifact
+- Registered story function in `src/inngest/functions/index.ts`.
+- Extended `src/lib/prompts/story.ts` with concept schema/parser.
+- Added tests:
+  - `src/inngest/functions/__tests__/generate-story.test.ts`
+  - updated `src/lib/prompts/__tests__/story.test.ts`
+- Ran targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+### Notes
+- Pipeline is character-agnostic and preserves `{{name}}` placeholder strategy.
+- Story generation enforces minimum 12 scenes via schema validation.
+
+---
+
+## 2026-02-11 -- Phase 3 implementation (slice 3: stories actions + admin pages)
+
+### Actions
+- Added server actions at `src/app/admin/stories/actions.ts`:
+  - `createStoryAction`
+  - `updateStoryMetaAction`
+  - `updateSceneAction`
+  - `regenerateSceneAction`
+- Added stories admin routes:
+  - `src/app/admin/stories/page.tsx`
+  - `src/app/admin/stories/new/page.tsx`
+  - `src/app/admin/stories/[id]/page.tsx`
+- Added stories admin UI components:
+  - `src/components/admin/story-form.tsx`
+  - `src/components/admin/story-editor.tsx`
+  - `src/components/admin/story-scene-card.tsx`
+  - `src/components/admin/story-detail-auto-refresh.tsx`
+- Extended story prompt parser with `parseAndValidateStoryScene`.
+- Verified targeted tests still pass:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts`
+
+### Problems
+1. `npm run lint` fails in this environment due local eslint binary resolution (`Cannot find module '../package.json'` from `node_modules/.bin/eslint`).
+2. `npx tsc --noEmit` fails due local typescript binary resolution (`Cannot find module '../lib/tsc.js'` from `node_modules/.bin/tsc`).
+3. `npm run build` fails to fetch Google fonts (`Geist`, `Geist Mono`) because network/font fetch is unavailable in this environment.
+
+---
+
+## 2026-02-11 -- Phase 3 refactor (visible step-by-step flow)
+
+### Actions
+- Refactored story generation to explicit admin-visible steps:
+  1) concept
+  2) manuscript metadata (title + arc summary)
+  3) scenes
+- Reworked `src/app/admin/stories/actions.ts` to run generation per step (no auto full pipeline):
+  - `createStoryAction` now creates story + generates concept immediately
+  - `regenerateConceptAction`
+  - `generateManuscriptAction`
+  - `generateScenesAction`
+  - kept `updateStoryMetaAction`, `updateSceneAction`, `regenerateSceneAction`
+- Removed scene `layout` from story prompts/parsers/actions/UI:
+  - updated `src/lib/prompts/story.ts`
+  - updated scene editor/card components and scene update/regenerate paths
+- Updated detail page to expose and control each internal step:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - shows concept block, manuscript block, scenes block, with per-step action buttons
+- Updated Inngest `generate-story` function to match new prompt contracts so it compiles if used.
+
+### Tests
+- Updated prompt tests for concept/manuscript/scenes split.
+- Updated generate-story function tests for new 3-call model flow.
+- Ran targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+### Notes
+- Story status now moves through explicit phase states (e.g. `concept_ready`, `manuscript_ready`, `scenes_ready`, and `*_failed`/`*_generating` variants), so admin can stop and review between steps.
+
+---
+
+## 2026-02-11 -- Phase 3 UX clarifications (metadata + scene continuity)
+
+### Actions
+- Removed redundant theme editing from story metadata editor (theme remains visible in header).
+- Renamed actions for clarity:
+  - `Save Story` -> `Save Title & Arc`
+  - `Save Scene` -> `Save This Scene`
+- Added `Save All Scenes` in story editor (persists all changed scenes in one action).
+- Added helper text under regenerate button explaining continuity behavior.
+- Updated scene regeneration context to use the **full story context** (all scenes), not just neighboring scenes.
+- Updated prompt builder for scene regeneration to accept full-story context and reflect that in prompt instructions.
+
+### Tests
+- Re-ran targeted story tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Phase 3 UI cleanup (metadata duplication)
+
+### Actions
+- Reduced visual duplication between Step 2 and the Story metadata editor on story detail page:
+  - Before scenes exist: Step 2 shows manuscript metadata details + generate/regenerate button.
+  - After scenes exist: Step 2 collapses to a short note and only keeps a regenerate button.
+  - Editing title/arc now happens in one place (Story metadata editor).
+- Updated `src/app/admin/stories/[id]/page.tsx` accordingly.
+
+### Tests
+- Ran targeted prompt tests to verify no regressions in updated flow:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Phase 3 UI layout pass (Step 2 + Step 3 flow)
+
+### Actions
+- Merged Step 2 display and editable story metadata into one card:
+  - Reworked `src/components/admin/story-editor.tsx` as the single manuscript metadata card.
+  - Includes both `Save Title & Arc` and `Regenerate Manuscript Metadata`.
+- Split scene editing into a dedicated component:
+  - Added `src/components/admin/story-scenes-editor.tsx`.
+- Updated story detail layout so Step 3 heading appears directly above scene cards:
+  - Updated `src/app/admin/stories/[id]/page.tsx`.
+  - Scene list no longer has story metadata card in between.
+
+### Tests
+- Ran targeted story tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Phase 4 kickoff + story deletion
+
+### Actions
+- Added admin option to delete stories:
+  - `deleteStoryAction` in `src/app/admin/stories/actions.ts`
+  - wired "Delete Story" button on story detail page
+  - cascades through scene-linked entities (story scenes, storyboard/final-page rows via scene IDs), props, and prompt artifacts
+- Added props bible prompt builder/parser:
+  - `src/lib/prompts/props.ts`
+  - tests in `src/lib/prompts/__tests__/props.test.ts`
+- Added Phase 4 props routes/actions:
+  - `src/app/admin/stories/[id]/props/page.tsx`
+  - `src/app/admin/stories/[id]/props/actions.ts`
+- Added props bible admin manager UI:
+  - `src/components/admin/props-bible-manager.tsx`
+  - supports generate props bible, manual add, edit, and delete props
+- Added "Open Props Bible" entry point on story detail (enabled after scenes exist).
+
+### Tests
+- Ran targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Phase 4 props precision improvements
+
+### Actions
+- Strengthened props extraction prompt to enforce production-level specificity:
+  - exact colors (including HEX), material, texture, shape, scale, and lighting details
+  - explicit ban on vague emotional-only phrasing
+- Added per-prop scene references (`appearsInScenes`) to generated/edited props.
+- Extended schema:
+  - `props_bible_entries.appears_in_scenes` (JSON text)
+  - generated/applied migration: `drizzle/0001_mean_iron_monger.sql`
+- Updated props generation, create/update actions, and props UI to capture/edit/display scene references.
+- Updated props parsing tests to validate `appearsInScenes`.
+
+### Tests
+- Ran targeted suites:
+  - `npm run test -- src/lib/prompts/__tests__/props.test.ts src/lib/prompts/__tests__/story.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Phase 4 prompt refinement (no HEX + anti-vague wording)
+
+### Actions
+- Updated props extraction prompt guidance to:
+  - explicitly avoid HEX color codes
+  - require concrete visual language (as if describing to a blind person)
+  - keep descriptions objective and unambiguous
+- Kept precision constraints for consistency (color names, material, texture, scale, lighting, position).
+
+### Tests
+- Ran:
+  - `npm run test -- src/lib/prompts/__tests__/props.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Scene UX + props visibility alignment
+
+### Actions
+- Removed duplicate Step 3 controls on story detail page:
+  - Step 3 card now only appears when scenes are not generated yet.
+  - Once scenes exist, "Regenerate All Scenes" moved next to "Save All Scenes" in the scene editor toolbar.
+- Surfaced props directly in each scene card:
+  - Loaded `props_bible_entries.appears_in_scenes` on story detail page.
+  - Mapped prop titles by scene number and displayed them under each scene.
+  - Added helper text clarifying scene-to-props linkage source.
+
+### Tests
+- Ran targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Step 2 metadata visibility fix
+
+### Actions
+- Fixed manuscript metadata card visibility/population on story detail:
+  - Step 2 now treats manuscript as present if either manuscript artifact exists or `stories.title/story_arc` exists.
+  - Story editor now falls back to manuscript artifact values when `stories` table fields are empty.
+- Updated `src/app/admin/stories/[id]/page.tsx`.
+
+---
+
+## 2026-02-11 -- Cover draft generation on story detail
+
+### Actions
+- Added draft cover generation action on story detail:
+  - `generateStoryCoverAction` in `src/app/admin/stories/actions.ts`
+  - generates cover image via Replicate NanoBanana, persists to R2, records prompt artifact + generated asset
+- Added "Draft Cover" section on story detail page (visible once scenes exist):
+  - render latest cover image
+  - generate/regenerate cover button
+  - file: `src/app/admin/stories/[id]/page.tsx`
+- Updated story deletion to also remove `generated_assets` rows tied to the story.
+
+### Tests
+- Re-ran targeted suites:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Cover style alignment to storyboard template
+
+### Actions
+- Updated cover generation prompt/style to match storyboard template direction:
+  - loose lines
+  - black-and-white only
+  - simple low-detail sketch style
+- Switched cover generation model to `nano-banana-pro` for sketch-oriented output.
+- Added outline reference wiring for cover generation:
+  - uses `OUTLINE_IMAGE_URL` if set
+  - falls back to `${NEXT_PUBLIC_APP_URL}/outline.png` when available
+  - prompt explicitly references outline placeholder behavior if URL is unavailable
+- Updated `src/app/admin/stories/actions.ts`.
+
+### Tests
+- Ran:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Cover prompt preview before image generation
+
+### Actions
+- Added reusable cover prompt helper:
+  - `src/lib/prompts/cover.ts`
+  - centralizes cover prompt composition + outline URL resolution.
+- Story detail now shows the exact cover prompt in the Draft Cover section before generation.
+- Cover generate action now accepts `coverPrompt` from the form so the submitted prompt is exactly what is visible pre-submit.
+- Updated files:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - `src/app/admin/stories/actions.ts`
+
+### Tests
+- Re-ran targeted tests:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
+## 2026-02-11 -- Character prompt preview before regeneration
+
+### Actions
+- Added prompt preview/edit box to character regenerate controls so admin can inspect/edit exact NanoBanana prompt before submit.
+- Wired prompt override through character regenerate action -> Inngest event payload -> generate-character function.
+- If override is provided, that exact prompt is used instead of auto-built profile prompt.
+- Updated files:
+  - `src/components/admin/character-regenerate-controls.tsx`
+  - `src/app/admin/characters/[id]/page.tsx`
+  - `src/app/admin/characters/actions.ts`
+  - `src/inngest/functions/generate-character.ts`
+
+### Tests
+- Ran targeted suites:
+  - `npm run test -- src/inngest/functions/__tests__/generate-character.test.ts src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts` (pass)
+
+---
+
 ## 2026-02-10 -- Project Initialization
 
 ### Actions

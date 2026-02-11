@@ -12,6 +12,7 @@ import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-
 import { CharacterGallery } from "@/components/admin/character-gallery";
 import { CharacterProfileSection } from "@/components/admin/character-profile-section";
 import { CharacterRegenerateControls } from "@/components/admin/character-regenerate-controls";
+import { buildCharacterPrompt } from "@/lib/prompts/character";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -42,6 +43,41 @@ export default async function CharacterDetailPage({ params }: Props) {
     .orderBy(desc(schema.characterImages.createdAt));
   const latestProfile = profile[0] ?? null;
   const isGenerating = item.status === "generating";
+  const promptPreview = buildCharacterPrompt(
+    {
+      approxAge: latestProfile?.approxAge ?? null,
+      hairColor: latestProfile?.hairColor ?? null,
+      hairLength: latestProfile?.hairLength ?? null,
+      hairTexture: latestProfile?.hairTexture ?? null,
+      hairStyle: latestProfile?.hairStyle ?? null,
+      faceShape: latestProfile?.faceShape ?? null,
+      eyeColor: latestProfile?.eyeColor ?? null,
+      eyeShape: latestProfile?.eyeShape ?? null,
+      skinTone: latestProfile?.skinTone ?? null,
+      clothing: latestProfile?.clothing ?? null,
+      distinctiveFeatures: latestProfile?.distinctiveFeatures ?? null,
+      colorPalette: latestProfile?.colorPalette
+        ? (JSON.parse(latestProfile.colorPalette) as string[])
+        : null,
+      personalityTraits: latestProfile?.personalityTraits
+        ? (JSON.parse(latestProfile.personalityTraits) as string[])
+        : null,
+      doNotChange: latestProfile?.doNotChange
+        ? (JSON.parse(latestProfile.doNotChange) as string[])
+        : null,
+    },
+    (item.stylePreset &&
+    ["watercolor", "storybook", "anime", "flat", "colored-pencil"].includes(
+      item.stylePreset
+    )
+      ? item.stylePreset
+      : "storybook") as
+      | "watercolor"
+      | "storybook"
+      | "anime"
+      | "flat"
+      | "colored-pencil"
+  );
   const profileForEdit = latestProfile
     ? {
         approxAge: latestProfile.approxAge,
@@ -80,7 +116,11 @@ export default async function CharacterDetailPage({ params }: Props) {
       {isGenerating ? <CharacterDetailAutoRefresh /> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <CharacterRegenerateControls characterId={id} />
+        <CharacterRegenerateControls
+          characterId={id}
+          currentStylePreset={item.stylePreset}
+          promptPreview={promptPreview}
+        />
         <CharacterDeleteButton characterId={id} />
       </div>
 
