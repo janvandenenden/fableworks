@@ -1,11 +1,7 @@
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
 import { desc, eq } from "drizzle-orm";
-import {
-  deleteCharacterAction,
-  regenerateCharacterAction,
-  regenerateImagesFromProfileAction,
-} from "@/app/admin/characters/actions";
+import { deleteCharacterAction } from "@/app/admin/characters/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +11,7 @@ import Image from "next/image";
 import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-auto-refresh";
 import { CharacterGallery } from "@/components/admin/character-gallery";
 import { CharacterProfileSection } from "@/components/admin/character-profile-section";
-import { getStylePresets } from "@/lib/prompts/character";
+import { CharacterRegenerateControls } from "@/components/admin/character-regenerate-controls";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -83,55 +79,8 @@ export default async function CharacterDetailPage({ params }: Props) {
 
       {isGenerating ? <CharacterDetailAutoRefresh /> : null}
 
-      <div className="flex flex-wrap gap-3">
-        <form
-          action={async (formData) => {
-            "use server";
-            await regenerateCharacterAction(formData);
-          }}
-          className="flex flex-wrap items-center gap-2"
-        >
-          <input type="hidden" name="id" value={id} />
-          <select
-            name="stylePreset"
-            defaultValue="default"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
-          >
-            <option value="default">Use current style</option>
-            {getStylePresets().map((preset) => (
-              <option key={preset.value} value={preset.value}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-          <Button type="submit" variant="secondary">
-            Regenerate (with vision)
-          </Button>
-        </form>
-        <form
-          action={async (formData) => {
-            "use server";
-            await regenerateImagesFromProfileAction(formData);
-          }}
-          className="flex flex-wrap items-center gap-2"
-        >
-          <input type="hidden" name="id" value={id} />
-          <select
-            name="stylePreset"
-            defaultValue="default"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
-          >
-            <option value="default">Use current style</option>
-            {getStylePresets().map((preset) => (
-              <option key={preset.value} value={preset.value}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-          <Button type="submit" variant="outline">
-            Regenerate images only
-          </Button>
-        </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <CharacterRegenerateControls characterId={id} />
         <form
           action={async () => {
             "use server";
