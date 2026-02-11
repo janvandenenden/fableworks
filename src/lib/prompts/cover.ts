@@ -15,22 +15,31 @@ export function buildStoryCoverPrompt(input: {
   outlineReferenceUrl?: string | null;
 }): string {
   return [
-    "Children's picture book draft cover template illustration.",
-    `Title text area at top: ${input.title ?? "Untitled Story"}.`,
-    `Core story arc: ${input.storyArc ?? "adventure and emotional growth"}.`,
-    "Main character shown as a white outline placeholder silhouette (to be personalized later).",
-    "Style requirements: loose storyboard sketch, black-and-white only, very simple forms, minimal detail.",
-    "Use rough line work and no color fills.",
-    "Clear foreground, midground, and background depth.",
-    input.sceneSummary ? `Scene cues: ${input.sceneSummary}.` : null,
+    "Storyboard draft cover sketch for a children's picture book.",
+    "",
+    "Style",
+    "- loose line art",
+    "- black-and-white only",
+    "- minimal detail",
+    "- rough draft quality",
+    "- no color fills",
+    "- no painterly shading",
+    "- no polished rendering",
+    "",
+    "Cover focus",
+    `- title placeholder area at top: ${input.title ?? "Untitled Story"}`,
+    `- core story arc: ${input.storyArc ?? "adventure and emotional growth"}`,
+    "- clear foreground, midground, and background depth",
+    "- no rendered typography; keep clean space for title text",
+    "",
+    "Story context",
+    input.sceneSummary ? `- scene cues: ${input.sceneSummary}` : "- scene cues: none",
     input.propsSummary
-      ? `Important props/environments: ${input.propsSummary}.`
-      : null,
-    "No typography rendered in image; leave clean space for title text.",
-    input.outlineReferenceUrl
-      ? `Use this character outline reference as guide: ${input.outlineReferenceUrl}.`
-      : "Use an outline-style hero placeholder similar to public/outline.png.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+      ? `- important props/environments: ${input.propsSummary}`
+      : "- important props/environments: none",
+    "",
+    "Character rule",
+    "- main character must remain a white outline placeholder silhouette (to be personalized later)",
+    "- reference outline image is provided separately as model input",
+  ].join("\n");
 }

@@ -1,5 +1,94 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 5 finalization (storyboard + cover unified flow)
+
+### Actions
+- Finalized storyboard generation workflow and moved draft cover into the same storyboard pipeline.
+- Added storyboard cover card on `/admin/stories/[id]/storyboard` with:
+  - generate/regenerate,
+  - prompt draft save,
+  - request preview modal,
+  - run history modal with reuse-run support.
+- Added storyboard run/prompt UX polish:
+  - top-level generate/regenerate button always visible on panel cards,
+  - full-width tabs,
+  - modals for request payload + run history,
+  - textarea-based composition fields,
+  - unsaved-change indicators for composition and prompt draft.
+- Added timestamp normalization for run history display and explicit `createdAt` on storyboard prompt artifacts to avoid `never` for new rows.
+- Added delete-story confirmation modal (`StoryDeleteButton`) on story detail.
+- Improved prompt structure consistency:
+  - panel prompts and cover prompts both use sectioned, readable formats.
+- Closed Phase 5 docs:
+  - updated `PHASE5_PLAN.md` completion status,
+  - updated `CLAUDE.md` phase tracking (Phase 6 marked current).
+
+### Testing
+- Added tests:
+  - `src/app/admin/stories/[id]/storyboard/__tests__/actions.test.ts`
+  - `src/components/admin/__tests__/storyboard-panel.test.tsx`
+- Re-ran targeted test suites multiple times during fixes:
+  - storyboard prompts, storyboard actions, storyboard panel component, and story prompt tests.
+- Final targeted runs passed.
+
+### Notes
+- Existing older run-history rows may still show `never` when `created_at` is genuinely missing; new runs now persist explicit timestamps and render correctly.
+
+## 2026-02-11 -- Phase 5 planning kickoff
+
+### Actions
+- Switched to a fresh branch for planning: `codex/phase-5-storyboard-plan`.
+- Synced local `main` with remote before branching.
+- Reviewed latest `DEV_LOG.md`, `PLAN.md` (Phase 5 section), and `CLAUDE.md` guardrails.
+- Created detailed storyboard implementation plan in `PHASE5_PLAN.md`.
+
+### Open Decisions
+- Confirm panel aspect ratio default for storyboard (`3:2` vs `2:3`).
+- Confirm whether storyboard should hard-require props bible readiness.
+- Confirm whether panel mapping should always be 1:1 with scenes.
+
+### Decisions (confirmed)
+- Storyboard should target children book landscape format aligned with `11 x 8.5 in`.
+- Storyboard generation is blocked until props bible is ready.
+- Panel mapping is fixed: `1 scene = 1 panel`.
+- Each panel must show exact prompt text before generate/regenerate.
+- Admin must support single-panel generation/regeneration for testing (in addition to bulk actions).
+
+---
+
+## 2026-02-11 -- Phase 5 implementation (slice 1: storyboard prompts + actions + page)
+
+### Actions
+- Added storyboard prompt module:
+  - `src/lib/prompts/storyboard.ts`
+  - composition prompt builder + parser
+  - panel image prompt builder
+  - outline URL helper and storyboard aspect ratio constant
+- Added storyboard actions:
+  - `src/app/admin/stories/[id]/storyboard/actions.ts`
+  - generate all compositions
+  - generate all panel images
+  - generate/regenerate single panel image (with prompt override)
+  - update panel composition fields
+- Added storyboard admin page:
+  - `src/app/admin/stories/[id]/storyboard/page.tsx`
+  - blocks generation until props bible exists
+  - bulk controls + per-panel one-by-one generation support
+  - exact prompt preview/edit for each panel
+- Added storyboard UI components:
+  - `src/components/admin/storyboard-panel.tsx`
+  - `src/components/admin/storyboard-view.tsx`
+- Added entry point from story detail page:
+  - `Open Storyboard` button on `src/app/admin/stories/[id]/page.tsx`
+- Added storyboard prompt tests:
+  - `src/lib/prompts/__tests__/storyboard.test.ts`
+
+### Tests
+- Ran targeted suites:
+  - `npm run test -- src/lib/prompts/__tests__/storyboard.test.ts src/lib/prompts/__tests__/story.test.ts src/lib/prompts/__tests__/props.test.ts src/inngest/functions/__tests__/generate-story.test.ts src/inngest/functions/__tests__/generate-character.test.ts` (pass)
+
+---
+
 ## 2026-02-11 -- Phase 3 planning kickoff
 
 ### Actions
