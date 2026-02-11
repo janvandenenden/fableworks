@@ -8,8 +8,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
+import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-auto-refresh";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -39,16 +41,19 @@ export default async function CharacterDetailPage({ params }: Props) {
     .where(eq(schema.characterImages.characterId, id))
     .orderBy(desc(schema.characterImages.createdAt));
   const latestProfile = profile[0] ?? null;
+  const isGenerating = item.status === "generating";
 
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-semibold">{item.name}</h1>
-          <Badge variant="secondary">{item.status}</Badge>
-        </div>
-        <p className="text-sm text-muted-foreground">{item.gender}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-semibold">{item.name}</h1>
+        <Badge variant="secondary">{item.status}</Badge>
       </div>
+      <p className="text-sm text-muted-foreground">{item.gender}</p>
+    </div>
+
+    {isGenerating ? <CharacterDetailAutoRefresh /> : null}
 
       <div className="flex flex-wrap gap-3">
         <form
@@ -72,6 +77,21 @@ export default async function CharacterDetailPage({ params }: Props) {
           </Button>
         </form>
       </div>
+
+      {isGenerating ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Generation in progress</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              We are generating the character profile and illustration. This
+              page will refresh automatically.
+            </p>
+            <Progress value={60} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
