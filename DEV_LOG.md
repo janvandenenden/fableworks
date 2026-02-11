@@ -35,6 +35,9 @@
     - no longer assumes immediate redirect; opens the created character via first visible `View` action.
   - `e2e/final-pages.spec.ts`
     - resolves strict-mode conflict by scoping duplicate tab role assertions with `.first()`.
+- Added E2E native dependency guard:
+  - `package.json`
+  - `pretest:e2e` and `pretest:e2e:ui` now run `npm rebuild better-sqlite3` to avoid Node ABI mismatch crashes in Playwright fixtures that open SQLite directly.
 
 ## 2026-02-11 -- Phase 8 implementation (slice 3: starter credits + generation guards) [in progress]
 
