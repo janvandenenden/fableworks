@@ -344,3 +344,5 @@ export const generateCharacter = inngest.createFunction(
     return { imageUrl };
   }
 );
+
+export const generateCharacterHandler = generateCharacter.handler;

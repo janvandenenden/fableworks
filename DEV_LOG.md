@@ -142,6 +142,7 @@
 - Added Playwright E2E test for character creation (skips actual generation).
 - Documented Inngest skip in E2E test note.
 - Fixed build error by avoiding reassignment of const payload when checking existing profile.
+ - Exposed generate-character handler for tests and fixed upload route test to use Blob.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
 2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.

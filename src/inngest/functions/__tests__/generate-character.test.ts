@@ -80,9 +80,7 @@ describe("generate-character function", () => {
     );
 
     const mod = await import("@/inngest/functions/generate-character");
-    const handler =
-      (mod.generateCharacter as { handler?: Function }).handler ??
-      (mod.generateCharacter as unknown as Function);
+    const handler = mod.generateCharacterHandler as unknown as Function;
 
     const step = createMockInngestStep();
 
@@ -148,9 +146,7 @@ describe("generate-character function", () => {
     );
 
     const mod = await import("@/inngest/functions/generate-character");
-    const handler =
-      (mod.generateCharacter as { handler?: Function }).handler ??
-      (mod.generateCharacter as unknown as Function);
+    const handler = mod.generateCharacterHandler as unknown as Function;
 
     const step = createMockInngestStep();
 

@@ -30,8 +30,8 @@ describe("upload route", () => {
 
   it("uploads file via form-data", async () => {
     const formData = new FormData();
-    const file = new File(["hello"], "test.png", { type: "image/png" });
-    formData.append("file", file);
+    const file = new Blob(["hello"], { type: "image/png" });
+    formData.append("file", file, "test.png");
     formData.append("key", "uploads/test.png");
 
     const request = new Request("http://localhost/api/upload", {
