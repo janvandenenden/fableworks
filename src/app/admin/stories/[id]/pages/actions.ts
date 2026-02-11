@@ -57,7 +57,7 @@ const finalPageRequestPayloadSchema = z.object({
   prompt: z.string().min(1),
   aspect_ratio: z.string().min(1),
   output_format: z.string().min(1),
-  image: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
+  image: z.array(z.string().min(1)).min(2),
 });
 const finalCoverSchema = z.object({
   storyId: z.string().uuid(),
@@ -117,6 +117,12 @@ function parseRequestPayload(
   }
   const result = finalPageRequestPayloadSchema.safeParse(parsed);
   return result.success ? result.data : null;
+}
+
+function hasDualReferenceImages(
+  payload: z.infer<typeof finalPageRequestPayloadSchema>
+): boolean {
+  return Array.isArray(payload.image) && payload.image.length >= 2;
 }
 
 async function buildFinalPageGenerationContext(input: {
@@ -476,6 +482,13 @@ async function generateSingleFinalPage(input: {
       storyboardReferenceUrl: panel.imageUrl,
       characterReferenceUrl: selectedImage.imageUrl,
     });
+  if (!hasDualReferenceImages(requestPayload)) {
+    return {
+      success: false,
+      error:
+        "Final page generation requires both storyboard and character reference images.",
+    };
+  }
 
   const promptId = newId();
   await db.insert(schema.promptArtifacts).values({
@@ -857,6 +870,13 @@ async function generateSingleFinalCover(input: {
       storyboardReferenceUrl: contextResult.data.storyboardCoverUrl,
       characterReferenceUrl: contextResult.data.selectedImageUrl,
     });
+  if (!hasDualReferenceImages(requestPayload)) {
+    return {
+      success: false,
+      error:
+        "Final cover generation requires both storyboard and character reference images.",
+    };
+  }
 
   const promptId = newId();
   await db.insert(schema.promptArtifacts).values({

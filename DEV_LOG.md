@@ -1,5 +1,25 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Final page payload hardening (dual-image guard) [in progress]
+
+### Actions
+- Hardened final page/final cover run payload validation:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - run payload schema now requires `image` as an array with at least two URLs.
+  - added explicit guard errors when storyboard + character references are not both present.
+- Cleanup:
+  - `src/lib/prompts/final-page.ts`
+  - removed unused `invariantsText` local to keep lint clean.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+### Notes
+- Local DB inspection confirmed recent `final_page_image` artifacts store both URLs in:
+  - `parameters.image[0]` (storyboard reference)
+  - `parameters.image[1]` (character reference)
+
 ## 2026-02-11 -- Phase 8 implementation (slice 4: customer review-pay flow + ownership checks) [in progress]
 
 ### Actions
