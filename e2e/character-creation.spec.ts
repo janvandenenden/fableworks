@@ -20,7 +20,7 @@ test("create character without generation", async ({ page }) => {
 
   await page.getByLabel("Name").fill("Test Child");
 
-  const filePath = path.join(process.cwd(), "public", "outline.png");
+  const filePath = path.join(process.cwd(), "public", "next.svg");
   await page.setInputFiles('input[type="file"]', filePath);
 
   await expect(page.getByText("Uploaded: original.png")).toBeVisible();

@@ -146,6 +146,7 @@
 - Fixed upload route test mocking with vitest hoisted mocks.
 - Fixed generate-character test mock chain for onConflictDoUpdate.
 - Made generate-character test insert mock synchronous to support onConflict chain.
+- Adjusted E2E test to use an existing public asset for file upload.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
 2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.
