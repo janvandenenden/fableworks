@@ -120,3 +120,4 @@
 - Upserted character profiles on regenerate and improved Replicate output parsing/error handling.
 - Loosened vision profile parsing to coerce numbers into strings and expanded Replicate URL extraction.
 - Persisted Replicate raw output snapshot to `prompt_artifacts.parameters` for debugging when no image URL is extracted.
+- Expanded Replicate URL extraction (handles `image` and string outputs) and mark prompts as running.

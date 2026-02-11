@@ -79,6 +79,14 @@ export function extractImageUrl(output: unknown): string | null {
   if (
     output &&
     typeof output === "object" &&
+    "image" in output &&
+    typeof (output as { image: unknown }).image === "string"
+  ) {
+    return (output as { image: string }).image;
+  }
+  if (
+    output &&
+    typeof output === "object" &&
     "output" in output &&
     Array.isArray((output as { output: unknown }).output)
   ) {
@@ -103,6 +111,14 @@ export function extractImageUrl(output: unknown): string | null {
         return (first as { image: string }).image;
       }
     }
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "output" in output &&
+    typeof (output as { output: unknown }).output === "string"
+  ) {
+    return (output as { output: string }).output;
   }
   if (
     output &&

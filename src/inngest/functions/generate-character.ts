@@ -184,6 +184,13 @@ export const generateCharacter = inngest.createFunction(
       })
     );
 
+    await step.run("mark-prompt-running", () =>
+      db
+        .update(schema.promptArtifacts)
+        .set({ status: "running" })
+        .where(eq(schema.promptArtifacts.id, promptId))
+    );
+
     const predictionOutput = await step.run("replicate-generate", () =>
       runPrediction(MODELS.nanoBanana, {
         prompt,
