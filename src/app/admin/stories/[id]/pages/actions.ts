@@ -475,13 +475,18 @@ async function generateSingleFinalPage(input: {
   });
 
   const prompt = input.promptOverride?.trim() || generatedPrompt;
-  const requestPayload =
+  const requestPayloadBase =
     input.requestPayloadOverride ??
     buildFinalPageRequestPayload({
       prompt,
       storyboardReferenceUrl: panel.imageUrl,
       characterReferenceUrl: selectedImage.imageUrl,
     });
+  const requestPayload = {
+    ...requestPayloadBase,
+    // Always use live scene + character references, even when reusing a stored run payload.
+    image: [panel.imageUrl, selectedImage.imageUrl],
+  };
   if (!hasDualReferenceImages(requestPayload)) {
     return {
       success: false,
@@ -864,12 +869,16 @@ async function generateSingleFinalCover(input: {
   const prompt = input.promptOverride?.trim() || generatedPrompt;
 
   const requestPayload =
-    input.requestPayloadOverride ??
-    buildFinalPageRequestPayload({
-      prompt,
-      storyboardReferenceUrl: contextResult.data.storyboardCoverUrl,
-      characterReferenceUrl: contextResult.data.selectedImageUrl,
-    });
+    {
+      ...(input.requestPayloadOverride ??
+        buildFinalPageRequestPayload({
+          prompt,
+          storyboardReferenceUrl: contextResult.data.storyboardCoverUrl,
+          characterReferenceUrl: contextResult.data.selectedImageUrl,
+        })),
+      // Always force dual references for cover generation.
+      image: [contextResult.data.storyboardCoverUrl, contextResult.data.selectedImageUrl],
+    };
   if (!hasDualReferenceImages(requestPayload)) {
     return {
       success: false,

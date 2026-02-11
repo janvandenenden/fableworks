@@ -7,6 +7,12 @@
   - `src/app/admin/stories/[id]/pages/actions.ts`
   - run payload schema now requires `image` as an array with at least two URLs.
   - added explicit guard errors when storyboard + character references are not both present.
+- Added payload override hardening for regenerate flows:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - when reusing stored run payloads, generation now force-injects current reference images:
+    - `image[0] = current storyboard reference`
+    - `image[1] = current character reference`
+  - prevents missing reference images on subsequent regenerations.
 - Cleanup:
   - `src/lib/prompts/final-page.ts`
   - removed unused `invariantsText` local to keep lint clean.
