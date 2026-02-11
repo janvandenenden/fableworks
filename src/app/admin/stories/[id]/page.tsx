@@ -179,6 +179,9 @@ export default async function StoryDetailPage({ params }: Props) {
               Open Final Pages
             </Button>
           )}
+          <Button asChild variant="outline">
+            <Link href={`/admin/books/${id}`}>Open Fulfillment</Link>
+          </Button>
           <StoryDeleteButton storyId={id} />
         </div>
       </div>

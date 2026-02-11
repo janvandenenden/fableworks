@@ -13,6 +13,17 @@ const update = vi.fn(() => ({ set: updateSet }));
 const deleteWhere = vi.fn(async () => undefined);
 const del = vi.fn(() => ({ where: deleteWhere }));
 
+type StoryHandler = (input: {
+  event: {
+    data: {
+      id: string;
+      ageRange: "3-5" | "6-8" | "9-12";
+      theme?: string | null;
+    };
+  };
+  step: ReturnType<typeof createMockInngestStep>;
+}) => Promise<{ storyId: string; sceneCount: number }>;
+
 vi.mock("@/db", () => ({
   db: {
     insert,
@@ -67,7 +78,7 @@ describe("generate-story function", () => {
       );
 
     const mod = await import("@/inngest/functions/generate-story");
-    const handler = mod.generateStoryHandler as unknown as Function;
+    const handler: StoryHandler = mod.generateStoryHandler;
     const step = createMockInngestStep();
 
     const result = await handler({
@@ -101,7 +112,7 @@ describe("generate-story function", () => {
     mockGenerateText.mockRejectedValueOnce(new Error("OpenAI unavailable"));
 
     const mod = await import("@/inngest/functions/generate-story");
-    const handler = mod.generateStoryHandler as unknown as Function;
+    const handler: StoryHandler = mod.generateStoryHandler;
     const step = createMockInngestStep();
 
     await expect(

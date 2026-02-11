@@ -14,6 +14,7 @@ import {
   buildFinalPagePrompt,
   buildFinalPageRequestPayload,
 } from "@/lib/prompts/final-page";
+import { buildFinalCoverPrompt } from "@/lib/prompts/final-cover";
 import { revalidatePath } from "next/cache";
 
 type ActionResult<T> =
@@ -56,6 +57,21 @@ const finalPageRequestPayloadSchema = z.object({
   aspect_ratio: z.string().min(1),
   output_format: z.string().min(1),
   image: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
+});
+const finalCoverSchema = z.object({
+  storyId: z.string().uuid(),
+  promptOverride: z.string().optional().nullable(),
+  characterId: z.string().uuid().optional().nullable(),
+});
+const finalCoverFromRunSchema = z.object({
+  storyId: z.string().uuid(),
+  runArtifactId: z.string().uuid(),
+  characterId: z.string().uuid().optional().nullable(),
+});
+const finalCoverPromptDraftSchema = z.object({
+  storyId: z.string().uuid(),
+  promptOverride: z.string().min(1, "Prompt cannot be empty"),
+  characterId: z.string().uuid().optional().nullable(),
 });
 
 function newId(): string {
@@ -262,6 +278,138 @@ async function buildFinalPageGenerationContext(input: {
       stylePreset: character.stylePreset,
       characterId: character.id,
       characterName: character.name,
+      characterProfileSummary: profileSummary,
+    },
+  };
+}
+
+async function buildFinalCoverGenerationContext(input: {
+  storyId: string;
+  characterIdOverride?: string | null;
+}) {
+  const storyRows = await db
+    .select()
+    .from(schema.stories)
+    .where(eq(schema.stories.id, input.storyId))
+    .limit(1);
+  const story = storyRows[0];
+  if (!story) {
+    return { success: false as const, error: "Story not found" };
+  }
+
+  const activeCharacterId = input.characterIdOverride ?? story.characterId;
+  if (!activeCharacterId) {
+    return {
+      success: false as const,
+      error: "No character provided. Link a character or select one for final cover generation.",
+    };
+  }
+
+  const characterRows = await db
+    .select({
+      id: schema.characters.id,
+      stylePreset: schema.characters.stylePreset,
+      name: schema.characters.name,
+    })
+    .from(schema.characters)
+    .where(eq(schema.characters.id, activeCharacterId))
+    .limit(1);
+  const character = characterRows[0];
+  if (!character) {
+    return { success: false as const, error: "Character not found" };
+  }
+
+  const selectedImageRows = await db
+    .select({
+      imageUrl: schema.characterImages.imageUrl,
+    })
+    .from(schema.characterImages)
+    .where(
+      and(
+        eq(schema.characterImages.characterId, activeCharacterId),
+        eq(schema.characterImages.isSelected, true)
+      )
+    )
+    .limit(1);
+  const selectedImage = selectedImageRows[0];
+  if (!selectedImage) {
+    return {
+      success: false as const,
+      error: "No selected character image found. Select a character variant first.",
+    };
+  }
+
+  const profileRows = await db
+    .select({
+      approxAge: schema.characterProfiles.approxAge,
+      hairColor: schema.characterProfiles.hairColor,
+      hairLength: schema.characterProfiles.hairLength,
+      hairTexture: schema.characterProfiles.hairTexture,
+      hairStyle: schema.characterProfiles.hairStyle,
+      faceShape: schema.characterProfiles.faceShape,
+      eyeColor: schema.characterProfiles.eyeColor,
+      eyeShape: schema.characterProfiles.eyeShape,
+      skinTone: schema.characterProfiles.skinTone,
+      clothing: schema.characterProfiles.clothing,
+      distinctiveFeatures: schema.characterProfiles.distinctiveFeatures,
+    })
+    .from(schema.characterProfiles)
+    .where(eq(schema.characterProfiles.characterId, activeCharacterId))
+    .limit(1);
+  const profile = profileRows[0];
+  if (!profile) {
+    return {
+      success: false as const,
+      error: "Character profile not found. Regenerate character profile first.",
+    };
+  }
+
+  const storyboardCoverRows = await db
+    .select({
+      storageUrl: schema.generatedAssets.storageUrl,
+      createdAt: schema.generatedAssets.createdAt,
+    })
+    .from(schema.generatedAssets)
+    .where(
+      and(
+        eq(schema.generatedAssets.entityId, input.storyId),
+        eq(schema.generatedAssets.type, "story_cover")
+      )
+    )
+    .orderBy(asc(schema.generatedAssets.createdAt));
+  const storyboardCover = storyboardCoverRows[storyboardCoverRows.length - 1];
+  if (!storyboardCover?.storageUrl) {
+    return {
+      success: false as const,
+      error: "Storyboard cover sketch missing. Generate a storyboard cover first.",
+    };
+  }
+
+  const profileSummary = [
+    profile.approxAge ? `approx age: ${profile.approxAge}` : null,
+    profile.hairColor ? `hair color: ${profile.hairColor}` : null,
+    profile.hairLength ? `hair length: ${profile.hairLength}` : null,
+    profile.hairTexture ? `hair texture: ${profile.hairTexture}` : null,
+    profile.hairStyle ? `hair style: ${profile.hairStyle}` : null,
+    profile.faceShape ? `face shape: ${profile.faceShape}` : null,
+    profile.eyeColor ? `eye color: ${profile.eyeColor}` : null,
+    profile.eyeShape ? `eye shape: ${profile.eyeShape}` : null,
+    profile.skinTone ? `skin tone: ${profile.skinTone}` : null,
+    profile.clothing ? `clothing: ${profile.clothing}` : null,
+    profile.distinctiveFeatures ? `distinctive features: ${profile.distinctiveFeatures}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  return {
+    success: true as const,
+    data: {
+      story,
+      storyboardCoverUrl: storyboardCover.storageUrl,
+      selectedImageUrl: selectedImage.imageUrl,
+      characterId: character.id,
+      characterName: character.name,
+      stylePreset: character.stylePreset,
       characterProfileSummary: profileSummary,
     },
   };
@@ -658,5 +806,227 @@ export async function generateFinalPagesAction(
 
   revalidatePath(`/admin/stories/${payload.storyId}/pages`);
   revalidatePath(`/admin/stories/${payload.storyId}`);
+  return { success: true, data: { id: payload.storyId } };
+}
+
+async function generateSingleFinalCover(input: {
+  storyId: string;
+  promptOverride?: string | null;
+  characterIdOverride?: string | null;
+  requestPayloadOverride?: z.infer<typeof finalPageRequestPayloadSchema> | null;
+}): Promise<ActionResult<{ id: string }>> {
+  const contextResult = await buildFinalCoverGenerationContext({
+    storyId: input.storyId,
+    characterIdOverride: input.characterIdOverride,
+  });
+  if (!contextResult.success) {
+    return { success: false, error: contextResult.error };
+  }
+
+  const generatedPrompt = buildFinalCoverPrompt({
+    title: contextResult.data.story.title,
+    storyArc: contextResult.data.story.storyArc,
+    characterName: contextResult.data.characterName,
+    characterProfileSummary: contextResult.data.characterProfileSummary,
+    stylePreset: contextResult.data.stylePreset,
+    storyboardCoverReferenceUrl: contextResult.data.storyboardCoverUrl,
+    characterReferenceUrl: contextResult.data.selectedImageUrl,
+  });
+  const prompt = input.promptOverride?.trim() || generatedPrompt;
+
+  const requestPayload =
+    input.requestPayloadOverride ??
+    buildFinalPageRequestPayload({
+      prompt,
+      storyboardReferenceUrl: contextResult.data.storyboardCoverUrl,
+      characterReferenceUrl: contextResult.data.selectedImageUrl,
+    });
+
+  const promptId = newId();
+  await db.insert(schema.promptArtifacts).values({
+    id: promptId,
+    entityType: "final_cover_image",
+    entityId: input.storyId,
+    rawPrompt: requestPayload.prompt,
+    model: MODELS.nanoBanana,
+    parameters: requestPayload,
+    structuredFields: JSON.stringify({
+      characterId: contextResult.data.characterId,
+      characterName: contextResult.data.characterName,
+    }),
+    status: "running",
+    createdAt: new Date(),
+  });
+
+  try {
+    const prediction = await createPrediction(MODELS.nanoBanana, requestPayload);
+    const replicate = getReplicateClient();
+    let predictionOutput: unknown = null;
+    let predictionStatus = prediction.status;
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const result = await replicate.predictions.get(prediction.id);
+      predictionStatus = result.status;
+      if (result.status === "succeeded") {
+        predictionOutput = result.output;
+        break;
+      }
+      if (result.status === "failed" || result.status === "canceled") {
+        throw new Error(
+          `Replicate prediction ${result.status}: ${result.error ?? "unknown"}`
+        );
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5000);
+      });
+    }
+
+    if (!predictionOutput) {
+      throw new Error(`Replicate prediction still ${predictionStatus}`);
+    }
+
+    const tempUrl = extractImageUrl(predictionOutput);
+    if (!tempUrl) {
+      throw new Error("Replicate did not return an image URL for final cover");
+    }
+
+    const assetId = newId();
+    const storageUrl = await copyFromTempUrl(
+      tempUrl,
+      `stories/${input.storyId}/cover/final/${assetId}.png`
+    );
+
+    await db.insert(schema.generatedAssets).values({
+      id: assetId,
+      type: "final_cover_image",
+      entityId: input.storyId,
+      storageUrl,
+      mimeType: "image/png",
+      metadata: JSON.stringify({
+        promptId,
+        characterId: contextResult.data.characterId,
+        characterName: contextResult.data.characterName,
+      }),
+    });
+
+    await db
+      .update(schema.promptArtifacts)
+      .set({ status: "success", resultUrl: storageUrl })
+      .where(eq(schema.promptArtifacts.id, promptId));
+
+    return { success: true, data: { id: input.storyId } };
+  } catch (error) {
+    await db
+      .update(schema.promptArtifacts)
+      .set({
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message : "Final cover generation failed",
+      })
+      .where(eq(schema.promptArtifacts.id, promptId));
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to generate final cover",
+    };
+  }
+}
+
+export async function generateFinalCoverAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = finalCoverSchema.parse({
+    storyId: formData.get("storyId"),
+    promptOverride: formData.get("promptOverride"),
+    characterId: formData.get("characterId"),
+  });
+  const result = await generateSingleFinalCover({
+    storyId: payload.storyId,
+    promptOverride: payload.promptOverride ?? null,
+    characterIdOverride: payload.characterId ?? null,
+  });
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}/storyboard`);
+  revalidatePath(`/admin/books/${payload.storyId}`);
+  return result;
+}
+
+export async function generateFinalCoverFromRunAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = finalCoverFromRunSchema.parse({
+    storyId: formData.get("storyId"),
+    runArtifactId: formData.get("runArtifactId"),
+    characterId: formData.get("characterId"),
+  });
+
+  const artifactRows = await db
+    .select()
+    .from(schema.promptArtifacts)
+    .where(eq(schema.promptArtifacts.id, payload.runArtifactId))
+    .limit(1);
+  const artifact = artifactRows[0];
+  if (!artifact) return { success: false, error: "Run artifact not found" };
+  if (artifact.entityType !== "final_cover_image") {
+    return { success: false, error: "Invalid run artifact type" };
+  }
+  if (artifact.entityId !== payload.storyId) {
+    return { success: false, error: "Run artifact does not belong to this story" };
+  }
+
+  const parsedPayload = parseRequestPayload(artifact.parameters);
+  if (!parsedPayload) {
+    return { success: false, error: "Run artifact payload is missing or invalid" };
+  }
+
+  const result = await generateSingleFinalCover({
+    storyId: payload.storyId,
+    characterIdOverride: payload.characterId ?? null,
+    requestPayloadOverride: parsedPayload,
+  });
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}/storyboard`);
+  revalidatePath(`/admin/books/${payload.storyId}`);
+  return result;
+}
+
+export async function saveFinalCoverPromptDraftAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = finalCoverPromptDraftSchema.parse({
+    storyId: formData.get("storyId"),
+    promptOverride: formData.get("promptOverride"),
+    characterId: formData.get("characterId"),
+  });
+
+  const contextResult = await buildFinalCoverGenerationContext({
+    storyId: payload.storyId,
+    characterIdOverride: payload.characterId ?? null,
+  });
+  if (!contextResult.success) {
+    return { success: false, error: contextResult.error };
+  }
+
+  const requestPayload = buildFinalPageRequestPayload({
+    prompt: payload.promptOverride.trim(),
+    storyboardReferenceUrl: contextResult.data.storyboardCoverUrl,
+    characterReferenceUrl: contextResult.data.selectedImageUrl,
+  });
+
+  await db.insert(schema.promptArtifacts).values({
+    id: newId(),
+    entityType: "final_cover_prompt_draft",
+    entityId: payload.storyId,
+    rawPrompt: payload.promptOverride.trim(),
+    model: MODELS.nanoBanana,
+    parameters: requestPayload,
+    structuredFields: JSON.stringify({
+      characterId: contextResult.data.characterId,
+      characterName: contextResult.data.characterName,
+    }),
+    status: "success",
+    createdAt: new Date(),
+  });
+
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}/storyboard`);
   return { success: true, data: { id: payload.storyId } };
 }

@@ -1,5 +1,186 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 7 implementation (slice 6: preflight checklist + Lulu diagnostics history)
+
+### Actions
+- Added Lulu config preflight helper:
+  - `src/lib/lulu.ts`
+  - `getLuluConfigValidationErrors()` checks required env vars and shipping JSON validity.
+- Added fulfillment preflight and diagnostics UI:
+  - `src/app/admin/books/[id]/page.tsx`
+  - New **Preflight Checklist** section with explicit blockers and warnings before submission.
+  - `Send to Lulu` is now disabled when blockers exist.
+  - New **Lulu Attempt History** section showing recent submit/refresh attempts and payload/error details.
+- Added server-side Lulu attempt logging:
+  - `src/app/admin/books/actions.ts`
+  - Submit and refresh actions now persist prompt artifact records:
+    - `lulu_print_submit`
+    - `lulu_print_status_refresh`
+  - Records include running/success/failed status and error details for troubleshooting.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/lulu.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 7 implementation (slice 5: sketch-first personalized final cover flow)
+
+### Actions
+- Added dedicated final-cover prompt helper:
+  - `src/lib/prompts/final-cover.ts`
+- Added final-cover generation actions in `src/app/admin/stories/[id]/pages/actions.ts`:
+  - `generateFinalCoverAction`
+  - `generateFinalCoverFromRunAction`
+  - `saveFinalCoverPromptDraftAction`
+  - Flow uses:
+    - storyboard cover sketch (`generated_assets.type = "story_cover"`) as composition reference
+    - selected character variant image as identity reference
+  - Output persisted as:
+    - `generated_assets.type = "final_cover_image"` (entityId = storyId)
+    - prompt artifacts (`final_cover_image`, `final_cover_prompt_draft`)
+- Added Final Pages UI for sketch-first cover personalization:
+  - `src/components/admin/final-cover-card.tsx`
+  - Wired into `src/app/admin/stories/[id]/pages/page.tsx`
+  - Provides:
+    - side-by-side storyboard cover sketch vs final personalized cover
+    - character selector
+    - editable exact prompt
+    - run-history reuse
+- Updated PDF generation source priority in `src/app/admin/books/actions.ts`:
+  - cover PDF hero image now prefers:
+    1) `final_cover_image`
+    2) `story_cover`
+    3) first interior spread image fallback
+- Updated `src/lib/pdf/generate-book-pdf.tsx`:
+  - `generateBookCoverPdfBuffer(...)` accepts optional `heroImageUrl`.
+- Added unit test:
+  - `src/lib/prompts/__tests__/final-cover.test.ts`
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/prompts/__tests__/final-cover.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 7 implementation (slice 4: generate book PDFs from Final Pages step)
+
+### Actions
+- Added direct book-file generation controls to the Final Pages route:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - New card: **Book Files (Interior + Cover)**
+  - Added `Generate Interior + Cover PDFs` action (calls `generateBookPdfAction`)
+  - Added `Open Fulfillment` shortcut button
+- Added gating in Final Pages UI:
+  - PDF generation is disabled until each scene has at least one final page version.
+- Positioning decision:
+  - Kept PDF generation in Final Pages (not Storyboard), because interior/cover PDFs depend on final page assets and approval/testing workflow from Phase 6.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 7 implementation (slice 3: separate interior/cover PDFs for Lulu)
+
+### Actions
+- Updated PDF generation pipeline to output separate files:
+  - `src/lib/pdf/book-template.tsx` now renders interior pages only.
+  - Added `src/lib/pdf/book-cover-template.tsx` for standalone cover PDF.
+  - `src/lib/pdf/generate-book-pdf.tsx` now exports:
+    - `generateBookInteriorPdfBuffer(...)`
+    - `generateBookCoverPdfBuffer(...)`
+- Updated fulfillment actions in `src/app/admin/books/actions.ts`:
+  - `generateBookPdfAction` now uploads two files to R2:
+    - `books/{storyId}/interior-{timestamp}.pdf`
+    - `books/{storyId}/cover-{timestamp}.pdf`
+  - Persists both as `generated_assets` records with types:
+    - `book_pdf_interior`
+    - `book_pdf_cover`
+  - `books.pdfUrl` remains set to interior PDF URL for backward compatibility.
+  - Added helper to resolve latest interior/cover URLs for a book.
+  - `submitToLuluAction` now requires and uses both files (`interior` + `cover`) instead of reusing one PDF.
+- Updated admin fulfillment UI:
+  - `src/app/admin/books/[id]/page.tsx`:
+    - shows separate `Download Interior PDF` and `Download Cover PDF` actions,
+    - disables `Send to Lulu` until both files exist.
+  - `src/app/admin/books/page.tsx`:
+    - shows whether Lulu-ready files are present in list view.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/lulu.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 7 implementation (slice 2: Lulu API submission + status refresh)
+
+### Actions
+- Extended `src/lib/lulu.ts` from manual-only helpers to API-capable client:
+  - OAuth token fetch (`LULU_CLIENT_KEY`/`LULU_CLIENT_ID`, `LULU_CLIENT_SECRET`)
+  - Print job create (`POST /print-jobs/`)
+  - Print job status fetch (`GET /print-jobs/{id}/`)
+  - Internal status mapping (`mapLuluStatusToInternal`)
+- Added env-gated configuration for API submission:
+  - `LULU_CONTACT_EMAIL`
+  - `LULU_POD_PACKAGE_ID`
+  - `LULU_TEST_SHIPPING_ADDRESS_JSON`
+  - optional: `LULU_API_BASE_URL`, `LULU_AUTH_URL`, `LULU_SHIPPING_LEVEL`
+- Added API-backed server actions in `src/app/admin/books/actions.ts`:
+  - `submitToLuluAction`
+  - `refreshLuluStatusAction`
+- Updated admin fulfillment UI in `src/app/admin/books/[id]/page.tsx`:
+  - Added `Send to Lulu` action button
+  - Added `Refresh Print Status` action button
+  - Kept manual override form for fallback/editing
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/lulu.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
+## 2026-02-11 -- Phase 7 implementation (slice 1: internal fulfillment scaffold)
+
+### Actions
+- Created branch implementation scaffold for internal fulfillment:
+  - Added admin fulfillment routes:
+    - `src/app/admin/books/page.tsx`
+    - `src/app/admin/books/[id]/page.tsx`
+  - Added `Fulfillment` nav entry in `src/app/admin/layout.tsx`.
+  - Added story-level shortcut to fulfillment in `src/app/admin/stories/[id]/page.tsx`.
+- Implemented manual-first fulfillment actions:
+  - `src/app/admin/books/actions.ts`
+  - `createOrGetBookForStoryAction`:
+    - creates synthetic internal `orders` row (`paymentStatus: "internal"`) when absent,
+    - creates `books` row when absent.
+  - `generateBookPdfAction`:
+    - validates all scenes have at least one final page,
+    - prefers approved version per scene, falls back to latest,
+    - generates PDF, uploads to R2, stores `books.pdfUrl`,
+    - updates `books.printStatus` to `pdf_ready`.
+  - `updateManualPrintAction`:
+    - stores manual Lulu metadata (`luluPrintJobId`, `printStatus`, `trackingUrl`).
+- Added PDF generation module:
+  - `src/lib/pdf/book-template.tsx`
+  - `src/lib/pdf/spread-layout.tsx`
+  - `src/lib/pdf/generate-book-pdf.tsx`
+  - Uses `@react-pdf/renderer` to render a proof PDF (cover + spreads + back page).
+- Added manual Lulu status helpers:
+  - `src/lib/lulu.ts`
+- Added tests:
+  - `src/lib/__tests__/lulu.test.ts`
+- Added dependency:
+  - `@react-pdf/renderer`
+
+### Tests
+- `npm run test -- src/lib/__tests__/lulu.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
+
+### Problems
+1. (Resolved later in same branch) lint runner was failing due a broken local `node_modules/.bin/eslint` shim. `package.json` lint script now calls ESLint entrypoint directly and lint passes.
+
+## 2026-02-11 -- Phase 7 planning kickoff (internal fulfillment)
+
+### Actions
+- Split roadmap phases:
+  - `PLAN.md` updated to make Phase 7 internal fulfillment and add Phase 8 for customer commerce UX.
+  - `CLAUDE.md` phase tracking updated to include Phase 8 and mark Phase 7 as current.
+- Started dedicated Phase 7 planning focused on:
+  - PDF generation quality and persistence,
+  - manual Lulu print trigger/status for internal testing,
+  - admin-first fulfillment loop before Stripe/customer checkout launch.
+
 ## 2026-02-11 -- Phase 6 implementation (slice 1: final page prompt contract)
 
 ### Actions

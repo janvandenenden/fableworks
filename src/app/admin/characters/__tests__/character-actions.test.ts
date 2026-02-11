@@ -11,8 +11,6 @@ const selectWhere = vi.fn(() => ({ limit: selectLimit }));
 const select = vi.fn(() => ({ from: () => ({ where: selectWhere }) }));
 
 const send = vi.fn(async () => ({ ids: ["event-id"] }));
-const insertProfileValues = vi.fn(async () => undefined);
-const insertProfile = vi.fn(() => ({ values: insertProfileValues, onConflictDoUpdate: vi.fn() }));
 
 vi.mock("@/db", () => ({
   db: {

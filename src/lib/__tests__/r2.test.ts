@@ -9,7 +9,9 @@ vi.mock("@aws-sdk/client-s3", () => {
   return {
     S3Client: class MockS3Client {
       send = mockSend;
-      constructor(_opts: unknown) {}
+      constructor(opts: unknown) {
+        void opts;
+      }
     },
     PutObjectCommand: class MockPutObjectCommand {
       input: unknown;

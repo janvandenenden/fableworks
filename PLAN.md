@@ -2,7 +2,7 @@
 
 ## Context
 
-Build a platform where parents create personalized children's books — a child becomes the protagonist of an AI-illustrated story, delivered as a PDF or printed book. The system has two surfaces: a user-facing book creation flow and an admin tool for story/asset management. This plan covers all 7 phases from project setup through purchase and delivery.
+Build a platform where parents create personalized children's books — a child becomes the protagonist of an AI-illustrated story, delivered as a PDF or printed book. The system has two surfaces: a user-facing book creation flow and an admin tool for story/asset management. This plan covers all 8 phases from project setup through internal fulfillment and customer commerce.
 
 **Key technology choices:**
 
@@ -701,7 +701,7 @@ personalized-books-assets/
 
 ---
 
-## Phase 7 — Output, Purchase & Delivery
+## Phase 7 — Internal Fulfillment (PDF + Manual Print)
 
 ### 7.1 PDF Generation
 
@@ -716,92 +716,100 @@ personalized-books-assets/
 - `src/lib/pdf/book-template.tsx` — React-PDF template defining book layout (cover, spreads, back)
 - `src/lib/pdf/spread-layout.tsx` — Single spread layout component
 
-### 7.2 In-App Viewer
+### 7.2 Internal Book Review + Download
 
-- `src/app/(app)/books/[id]/page.tsx` — Book detail page
-- Uses an embedded PDF viewer (e.g. `react-pdf` with `pdfjs-dist`) or a custom page-by-page image viewer
-- Download button for PDF
+- Admin can review generated book output before customer rollout.
+- Download button for PDF is available for internal QA/print checks.
+- Internal review route can be admin-only during this phase.
 
-### 7.3 Stripe Checkout
+### 7.3 Lulu Print-on-Demand (Manual Trigger)
 
-**Flow:**
+**Manual internal flow:**
 
-1. User completes character + story selection
-2. On checkout page, create Stripe Checkout Session via Server Action
-3. Redirect to Stripe-hosted checkout
-4. Stripe webhook (`src/app/api/webhooks/stripe/route.ts`) receives `checkout.session.completed`
-5. Webhook creates `orders` row with `payment_status: 'paid'`
-6. Triggers Inngest function to start final generation pipeline
+1. Admin triggers print submission from an internal page.
+2. Lulu client submits print job with generated PDF URL.
+3. `books` row stores `lulu_print_job_id` + print status.
+4. Admin can refresh or poll job status to track production/shipping.
 
-**Components:**
+**Components**
+- `src/lib/lulu.ts` — Lulu API client (create print job, get status, shipping rates).
+- `src/app/admin/books/[id]/page.tsx` (or equivalent) — internal print controls and status UI.
 
-- `src/app/(app)/create/checkout/page.tsx` — Order summary + "Pay" button
-- `src/app/(app)/create/checkout/actions.ts` — Server Action to create Stripe session
-- `src/app/api/webhooks/stripe/route.ts` — Stripe webhook handler
-- `src/lib/stripe.ts` — Stripe client + helpers
+### Phase 7 Tests
 
-### 7.4 Lulu Print-on-Demand
+- `src/inngest/functions/__tests__/generate-pdf.test.ts` — PDF generation with mocked React-PDF, R2 upload, book row created.
+- `src/lib/__tests__/lulu.test.ts` — print job creation, status polling, error handling.
+- `src/app/admin/books/__tests__/print-actions.test.ts` — manual print trigger and status refresh behavior.
 
-**Inngest function:** Triggered after PDF is ready + user requests print
+### Files Created
 
-- Creates a print job via Lulu API with the PDF URL
-- Stores `lulu_print_job_id` in `books` table
-- Polls Lulu API for status updates (or receives webhook)
+- `src/lib/pdf/book-template.tsx`, `spread-layout.tsx`
+- `src/inngest/functions/generate-pdf.ts`
+- `src/lib/lulu.ts`
+- `src/app/admin/books/page.tsx`, `[id]/page.tsx` (or equivalent internal fulfillment routes)
+- `src/inngest/functions/__tests__/generate-pdf.test.ts`
+- `src/lib/__tests__/lulu.test.ts`
+- `src/app/admin/books/__tests__/print-actions.test.ts`
 
-**Components:**
+---
 
-- `src/lib/lulu.ts` — Lulu API client (create print job, get status, get shipping rates)
-- Shipping address form on the user-facing order page
+## Phase 8 — Customer Commerce UX (Stripe + Buyer Flow)
 
-### 7.5 User-Facing Creation Flow
+### 8.1 Customer-Facing Creation Flow
 
 Multi-step flow managed by Zustand store (`src/stores/create-book.ts`):
 
 ```
 Step 1: Create Character → /create/character
 Step 2: Select Story     → /create/story
-Step 3: Checkout          → /create/checkout
-Step 4: Generation        → /create/generating (progress tracking)
-Step 5: View Book         → /books/[id]
+Step 3: Checkout         → /create/checkout
+Step 4: Generation       → /create/generating (progress tracking)
+Step 5: View Book        → /books/[id]
 ```
 
-**Zustand store** tracks: current step, character ID, story ID, order ID, generation progress.
+`/create/generating` tracks fulfillment progress with customer-friendly status updates.
 
-**Progress tracking:** The `/create/generating` page polls for generation status (or uses server-sent events). Shows progress bar with step labels: "Generating storyboard... Creating illustrations... Building your book..."
+### 8.2 Stripe Checkout + Webhook
 
-**Components:**
+**Flow**
+1. User completes character + story selection.
+2. Server Action creates Stripe Checkout Session.
+3. User pays via Stripe-hosted checkout.
+4. Stripe webhook confirms payment and updates order state (`paid`).
+5. Paid order transitions into fulfillment pipeline.
 
-- `src/components/create/character-step.tsx` — Reuses character form from admin
-- `src/components/create/story-step.tsx` — Story/theme selector (simplified from admin)
-- `src/components/create/checkout-step.tsx` — Order summary
-- `src/components/create/progress-step.tsx` — Generation progress
-- `src/components/create/step-indicator.tsx` — Step progress bar
+**Components**
+- `src/app/(app)/create/checkout/page.tsx`
+- `src/app/(app)/create/checkout/actions.ts`
+- `src/app/api/webhooks/stripe/route.ts`
+- `src/lib/stripe.ts`
 
-### Phase 7 Tests
+### 8.3 Customer Book Library + Status Tracking
 
-- `src/inngest/functions/__tests__/generate-pdf.test.ts` — PDF generation with mocked React-PDF, R2 upload, book row created
-- `src/lib/__tests__/stripe.test.ts` — Checkout session creation, webhook signature verification, event handling
-- `src/lib/__tests__/lulu.test.ts` — Print job creation, status polling, error handling
-- `src/stores/__tests__/create-book.test.ts` — Zustand store: step transitions, state persistence, reset
-- `src/components/create/__tests__/step-indicator.test.tsx` — Renders correct step states (active, completed, upcoming)
-- `src/components/create/__tests__/progress-step.test.tsx` — Polls for status, updates progress bar, handles completion
-- `src/test/fixtures/orders.ts` — Factory functions for order/book test data
-- `e2e/book-creation-flow.spec.ts` — Full user flow: create character, select story, reach checkout
-- `e2e/checkout.spec.ts` — Stripe test mode checkout, webhook simulation, order created
+- `src/app/(app)/books/page.tsx` — purchased/generated books list.
+- `src/app/(app)/books/[id]/page.tsx` — book detail with download and print/delivery status.
+- Hide all admin generation complexity from customer UI.
+
+### Phase 8 Tests
+
+- `src/lib/__tests__/stripe.test.ts` — checkout session creation, webhook signature verification, event handling.
+- `src/stores/__tests__/create-book.test.ts` — step transitions, state persistence, reset.
+- `src/components/create/__tests__/step-indicator.test.tsx` — active/completed/upcoming step states.
+- `src/components/create/__tests__/progress-step.test.tsx` — progress status updates and completion.
+- `src/test/fixtures/orders.ts` — order/book fixtures for commerce flows.
+- `e2e/book-creation-flow.spec.ts` — full user flow to checkout.
+- `e2e/checkout.spec.ts` — Stripe test checkout + webhook simulation.
 
 ### Files Created
 
-- `src/lib/pdf/book-template.tsx`, `spread-layout.tsx`
-- `src/inngest/functions/generate-pdf.ts`
 - `src/app/(app)/books/page.tsx`, `[id]/page.tsx`
 - `src/app/(app)/create/character/page.tsx`, `story/page.tsx`, `checkout/page.tsx`, `generating/page.tsx`
 - `src/app/(app)/create/actions.ts`
 - `src/app/api/webhooks/stripe/route.ts`
-- `src/lib/stripe.ts`, `src/lib/lulu.ts`
+- `src/lib/stripe.ts`
 - `src/stores/create-book.ts`
 - `src/components/create/character-step.tsx`, `story-step.tsx`, `checkout-step.tsx`, `progress-step.tsx`, `step-indicator.tsx`
-- `src/inngest/functions/__tests__/generate-pdf.test.ts`
-- `src/lib/__tests__/stripe.test.ts`, `src/lib/__tests__/lulu.test.ts`
+- `src/lib/__tests__/stripe.test.ts`
 - `src/stores/__tests__/create-book.test.ts`
 - `src/components/create/__tests__/step-indicator.test.tsx`, `progress-step.test.tsx`
 - `src/test/fixtures/orders.ts`
@@ -814,7 +822,7 @@ Step 5: View Book         → /books/[id]
 - `src/middleware.ts` — Clerk middleware protecting `/admin/*` (admin role check) and `/create/*`, `/books/*` (any authenticated user)
 - Admin routes require `role: 'admin'` in Clerk metadata
 - Phase 1-5: No auth enforced (admin-only development)
-- Phase 7: Enable Clerk auth for user-facing routes
+- Phase 8: Enable Clerk auth for user-facing routes
 
 ---
 
@@ -863,7 +871,8 @@ Step 5: View Book         → /books/[id]
 | 4     | Props extraction prompt                     | Prop form, props bible list           | --                               |
 | 5     | Storyboard prompt builder                   | Composition form, storyboard panel    | --                               |
 | 6     | Final page prompt builder                   | Final page card                       | --                               |
-| 7     | Stripe helpers, Lulu client, Zustand store  | Step indicator, progress step         | Full creation flow, checkout     |
+| 7     | PDF generator, Lulu client                  | Internal print controls               | Admin fulfillment smoke flow      |
+| 8     | Stripe helpers, Zustand commerce store      | Step indicator, progress step         | Full creation flow, checkout      |
 
 ### Bug Fixing Protocol
 
@@ -893,7 +902,8 @@ Automated tests cover logic and integration. Manual verification is for **visual
 - **Phase 4:** Props bible captures the right recurring elements. Descriptions are detailed enough for image gen.
 - **Phase 5:** Storyboard sketches match scene descriptions. Composition feels right.
 - **Phase 6:** Final pages are visually consistent across spreads. Character looks the same throughout.
-- **Phase 7:** PDF layout is clean. Stripe test payment completes. Lulu sandbox accepts the print job.
+- **Phase 7:** PDF layout is clean. Lulu sandbox accepts the manual print job and status updates.
+- **Phase 8:** Stripe test payment completes. Customer creation -> checkout -> library flow is smooth.
 
 ### Running Tests
 

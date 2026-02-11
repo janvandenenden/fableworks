@@ -4,7 +4,6 @@ import { desc, eq } from "drizzle-orm";
 import { CharacterDeleteButton } from "@/components/admin/character-delete-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";

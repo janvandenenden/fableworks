@@ -55,7 +55,10 @@ export function FinalPagesView({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {scenes.map((scene) => (
-        <FinalPageCard key={scene.sceneId} scene={scene} />
+        <FinalPageCard
+          key={`${scene.sceneId}:${scene.latestVersion ?? 0}:${scene.defaultCharacterId ?? "__none"}:${scene.promptPreview}`}
+          scene={scene}
+        />
       ))}
     </div>
   );

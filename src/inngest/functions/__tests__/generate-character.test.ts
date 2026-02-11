@@ -14,6 +14,19 @@ const updateSet = vi.fn(() => ({ where: updateWhere }));
 const update = vi.fn(() => ({ set: updateSet }));
 const insert = vi.fn(() => ({ values: insertValues }));
 
+type CharacterHandler = (input: {
+  event: {
+    data: {
+      id: string;
+      sourceImageUrl: string;
+      stylePreset?: string;
+      useExistingProfile?: boolean;
+      promptOverride?: string;
+    };
+  };
+  step: ReturnType<typeof createMockInngestStep>;
+}) => Promise<unknown>;
+
 vi.mock("@/db", () => ({
   db: {
     insert,
@@ -80,7 +93,7 @@ describe("generate-character function", () => {
     );
 
     const mod = await import("@/inngest/functions/generate-character");
-    const handler = mod.generateCharacterHandler as unknown as Function;
+    const handler: CharacterHandler = mod.generateCharacterHandler;
 
     const step = createMockInngestStep();
 
@@ -146,7 +159,7 @@ describe("generate-character function", () => {
     );
 
     const mod = await import("@/inngest/functions/generate-character");
-    const handler = mod.generateCharacterHandler as unknown as Function;
+    const handler: CharacterHandler = mod.generateCharacterHandler;
 
     const step = createMockInngestStep();
 

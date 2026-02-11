@@ -39,8 +39,11 @@ export async function createPrediction(
   webhookUrl?: string
 ): Promise<{ id: string; status: string }> {
   const client = getReplicateClient();
-  const [owner, rest] = model.split("/");
-  const [name, version] = rest.split(":");
+  const [, rest] = model.split("/");
+  const version = rest.split(":")[1];
+  if (!version) {
+    throw new Error(`Invalid model identifier: ${model}`);
+  }
 
   const prediction = await client.predictions.create({
     version,

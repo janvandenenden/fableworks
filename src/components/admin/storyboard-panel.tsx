@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Code2,
@@ -88,17 +88,10 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   const [isSavingComposition, startSaveCompositionTransition] = useTransition();
   const [isSavingPrompt, startSavePromptTransition] = useTransition();
   const [isReusingRunId, setIsReusingRunId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const [promptOverride, setPromptOverride] = useState(panel.promptPreview);
   const [savedPromptBase, setSavedPromptBase] = useState(panel.promptPreview);
   const [isCompositionDirty, setIsCompositionDirty] = useState(false);
   const defaultTab = panel.imageUrl ? "image" : "composition";
-
-  useEffect(() => {
-    setPromptOverride(panel.promptPreview);
-    setSavedPromptBase(panel.promptPreview);
-    setIsCompositionDirty(false);
-  }, [panel.promptPreview]);
 
   const compositionInitial = useMemo(
     () => ({
@@ -140,7 +133,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   );
 
   function handleSaveComposition(formData: FormData) {
-    setActionError(null);
     startSaveCompositionTransition(async () => {
       const result = await updateStoryboardCompositionAction(
         panel.storyId,
@@ -148,7 +140,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
         formData
       );
       if (!result.success) {
-        setActionError(result.error);
         toast.error(result.error);
         return;
       }
@@ -159,12 +150,10 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   }
 
   function handleGeneratePanel(formData: FormData) {
-    setActionError(null);
     startGeneratingTransition(async () => {
       formData.set("promptOverride", promptOverride);
       const result = await generateStoryboardPanelImageAction(formData);
       if (!result.success) {
-        setActionError(result.error);
         toast.error(result.error);
         router.refresh();
         return;
@@ -183,7 +172,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   }
 
   function handleSavePromptDraft() {
-    setActionError(null);
     startSavePromptTransition(async () => {
       const formData = new FormData();
       formData.set("storyId", panel.storyId);
@@ -191,7 +179,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
       formData.set("promptOverride", promptOverride);
       const result = await saveStoryboardPanelPromptDraftAction(formData);
       if (!result.success) {
-        setActionError(result.error);
         toast.error(result.error);
         return;
       }
@@ -214,7 +201,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   }
 
   function handleReuseRun(runArtifactId: string) {
-    setActionError(null);
     setIsReusingRunId(runArtifactId);
     startGeneratingTransition(async () => {
       const formData = new FormData();
@@ -224,7 +210,6 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
       const result = await generateStoryboardPanelImageFromRunAction(formData);
       setIsReusingRunId(null);
       if (!result.success) {
-        setActionError(result.error);
         toast.error(result.error);
         router.refresh();
         return;

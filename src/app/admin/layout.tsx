@@ -8,6 +8,7 @@ import {
   Users,
   BookOpen,
   FlaskConical,
+  Package,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/characters", label: "Characters", icon: Users },
   { href: "/admin/stories", label: "Stories", icon: BookOpen },
+  { href: "/admin/books", label: "Fulfillment", icon: Package },
   { href: "/admin/playground", label: "Playground", icon: FlaskConical },
 ];
 

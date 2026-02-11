@@ -13,7 +13,9 @@ vi.mock("replicate", () => {
       predictions = {
         create: mockPredictionsCreate,
       };
-      constructor(_opts: unknown) {}
+      constructor(opts: unknown) {
+        void opts;
+      }
     },
   };
 });
