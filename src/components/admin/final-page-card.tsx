@@ -43,7 +43,13 @@ function formatTimestamp(value: string | null): string {
   return date.toLocaleString();
 }
 
-export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
+export function FinalPageCard({
+  scene,
+  defaultTab = "images",
+}: {
+  scene: FinalPageSceneData;
+  defaultTab?: "images" | "prompt";
+}) {
   const router = useRouter();
   const [isGenerating, startGeneratingTransition] = useTransition();
   const [isSavingPrompt, startSavePromptTransition] = useTransition();
@@ -302,7 +308,7 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
       </CardHeader>
 
       <CardContent className="space-y-3">
-        <Tabs defaultValue="images" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="images">Images</TabsTrigger>
             <TabsTrigger value="prompt">Character + Prompt</TabsTrigger>

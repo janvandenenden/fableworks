@@ -153,6 +153,23 @@
   - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
   - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 7: final page card component tests)
+
+### Actions
+- Added dedicated component tests:
+  - `src/components/admin/__tests__/final-page-card.test.tsx`
+- Covered:
+  - tab rendering and image comparison presence,
+  - character-gating behavior when story-linked character lacks selected variant,
+  - prompt draft save flow with character context in form payload.
+- Added a small testability hook:
+  - `src/components/admin/final-page-card.tsx` now supports optional `defaultTab` prop (`images` default, `prompt` for tests).
+
+### Tests
+- Ran:
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx` (pass)
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions
