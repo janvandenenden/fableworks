@@ -66,7 +66,12 @@ export const generateCharacter = inngest.createFunction(
 
     let parsedProfile: z.infer<typeof visionProfileSchema>;
     try {
-      parsedProfile = visionProfileSchema.parse(JSON.parse(visionResponse));
+      const cleaned = visionResponse
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```\s*$/i, "")
+        .trim();
+      parsedProfile = visionProfileSchema.parse(JSON.parse(cleaned));
     } catch (error) {
       await step.run("mark-prompt-failed", () =>
         db
