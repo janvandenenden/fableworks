@@ -44,7 +44,7 @@ export async function createCharacterAction(
       gender: parsed.gender,
       stylePreset: parsed.stylePreset ?? null,
       sourceImageUrl: parsed.sourceImageUrl,
-      status: "draft",
+      status: "generating",
     });
 
     let warning: string | undefined;

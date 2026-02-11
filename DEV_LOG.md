@@ -124,6 +124,7 @@
 - Added Replicate output handling for FileOutput/url()/href and ensured prompt failures are recorded if Replicate run throws.
 - Switched character generation to create and poll Replicate predictions until completed.
 - Added auto-refresh + progress indicator on character detail while generation is running.
+- Set new character status to `generating` on creation so auto-refresh/loader shows immediately.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
 2. **Presigned upload CORS failures:** Moved upload to server-side `/api/upload` to avoid browser PUT CORS issues.
