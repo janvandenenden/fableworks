@@ -59,10 +59,16 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-export const generateCharacter = inngest.createFunction(
-  { id: "generate-character" },
-  { event: "character/created" },
-  async ({ event, step }) => {
+export async function generateCharacterHandler({
+  event,
+  step,
+}: {
+  event: { data: z.infer<typeof characterCreatedSchema> };
+  step: {
+    run: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
+    sleep: (name: string, duration: string) => Promise<void>;
+  };
+}) {
     const payload = characterCreatedSchema.parse(event.data);
 
     await step.run("mark-generating", () =>
@@ -342,7 +348,10 @@ export const generateCharacter = inngest.createFunction(
     );
 
     return { imageUrl };
-  }
-);
+}
 
-export const generateCharacterHandler = generateCharacter.handler;
+export const generateCharacter = inngest.createFunction(
+  { id: "generate-character" },
+  { event: "character/created" },
+  generateCharacterHandler
+);
