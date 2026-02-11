@@ -1,11 +1,5 @@
-"use client";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  regenerateCharacterAction,
-  regenerateImagesFromProfileAction,
-} from "@/app/admin/characters/actions";
+import { regenerateCharacterFromModeAction } from "@/app/admin/characters/actions";
 import { getStylePresets } from "@/lib/prompts/character";
 
 type Props = {
@@ -13,15 +7,17 @@ type Props = {
 };
 
 export function CharacterRegenerateControls({ characterId }: Props) {
-  const [stylePreset, setStylePreset] = useState("default");
   const presets = getStylePresets();
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <form
+      action={regenerateCharacterFromModeAction}
+      className="flex flex-wrap items-center gap-3"
+    >
+      <input type="hidden" name="id" value={characterId} />
       <select
         name="stylePreset"
-        value={stylePreset}
-        onChange={(event) => setStylePreset(event.target.value)}
+        defaultValue="default"
         className="h-9 rounded-md border bg-background px-3 text-sm"
       >
         <option value="default">Use current style</option>
@@ -32,33 +28,12 @@ export function CharacterRegenerateControls({ characterId }: Props) {
         ))}
       </select>
 
-      <form
-        action={async () => {
-          "use server";
-          const formData = new FormData();
-          formData.set("id", characterId);
-          formData.set("stylePreset", stylePreset);
-          await regenerateCharacterAction(formData);
-        }}
-      >
-        <Button type="submit" variant="secondary">
-          Regenerate (with vision)
-        </Button>
-      </form>
-
-      <form
-        action={async () => {
-          "use server";
-          const formData = new FormData();
-          formData.set("id", characterId);
-          formData.set("stylePreset", stylePreset);
-          await regenerateImagesFromProfileAction(formData);
-        }}
-      >
-        <Button type="submit" variant="outline">
-          Regenerate images only
-        </Button>
-      </form>
-    </div>
+      <Button type="submit" name="mode" value="vision" variant="secondary">
+        Regenerate (with vision)
+      </Button>
+      <Button type="submit" name="mode" value="profile" variant="outline">
+        Regenerate images only
+      </Button>
+    </form>
   );
 }

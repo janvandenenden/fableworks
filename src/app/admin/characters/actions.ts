@@ -74,90 +74,45 @@ export async function createCharacterAction(
   }
 }
 
-export async function regenerateCharacterAction(
-  id: string
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const rows = await db
-      .select()
-      .from(schema.characters)
-      .where(eq(schema.characters.id, id))
-      .limit(1);
+export async function regenerateCharacterFromModeAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const stylePreset = String(formData.get("stylePreset") ?? "");
+  const mode = String(formData.get("mode") ?? "");
 
-    if (!rows[0]) {
-      return { success: false, error: "Character not found" };
-    }
+  const rows = await db
+    .select()
+    .from(schema.characters)
+    .where(eq(schema.characters.id, id))
+    .limit(1);
 
-    const character = rows[0];
-    if (!character.sourceImageUrl) {
-      return { success: false, error: "Missing source image URL" };
-    }
-
-    await db
-      .update(schema.characters)
-      .set({ status: "generating" })
-      .where(eq(schema.characters.id, id));
-
-    await inngest.send({
-      name: "character/created",
-      data: {
-        id,
-        sourceImageUrl: character.sourceImageUrl,
-        stylePreset: character.stylePreset ?? "storybook",
-        useExistingProfile: false,
-      },
-    });
-
-    revalidatePath(`/admin/characters/${id}`);
-    return { success: true, data: { id } };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to regenerate";
-    return { success: false, error: message };
+  if (!rows[0]) {
+    return;
   }
-}
 
-export async function regenerateImagesFromProfileAction(
-  id: string
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const rows = await db
-      .select()
-      .from(schema.characters)
-      .where(eq(schema.characters.id, id))
-      .limit(1);
-
-    if (!rows[0]) {
-      return { success: false, error: "Character not found" };
-    }
-
-    const character = rows[0];
-    if (!character.sourceImageUrl) {
-      return { success: false, error: "Missing source image URL" };
-    }
-
-    await db
-      .update(schema.characters)
-      .set({ status: "generating" })
-      .where(eq(schema.characters.id, id));
-
-    await inngest.send({
-      name: "character/created",
-      data: {
-        id,
-        sourceImageUrl: character.sourceImageUrl,
-        stylePreset: character.stylePreset ?? "storybook",
-        useExistingProfile: true,
-      },
-    });
-
-    revalidatePath(`/admin/characters/${id}`);
-    return { success: true, data: { id } };
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to regenerate";
-    return { success: false, error: message };
+  const character = rows[0];
+  if (!character.sourceImageUrl) {
+    return;
   }
+
+  await db
+    .update(schema.characters)
+    .set({ status: "generating" })
+    .where(eq(schema.characters.id, id));
+
+  await inngest.send({
+    name: "character/created",
+    data: {
+      id,
+      sourceImageUrl: character.sourceImageUrl,
+      stylePreset:
+        stylePreset && stylePreset !== "default"
+          ? stylePreset
+          : character.stylePreset ?? "storybook",
+      useExistingProfile: mode === "profile",
+    },
+  });
+
+  revalidatePath(`/admin/characters/${id}`);
 }
 
 const profileUpdateSchema = z.object({

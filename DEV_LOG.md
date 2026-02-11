@@ -129,6 +129,7 @@
 - Added profile editor + regenerate-images-only flow to reuse the saved profile.
 - Hid profile editor behind an Edit button and added source image preview in details.
 - Replaced duplicate style selectors with a single regenerate control.
+- Refactored regenerate controls to a server form to avoid client/server action conflicts.
 - Fixed build error by avoiding reassignment of const payload when checking existing profile.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
