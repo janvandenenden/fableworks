@@ -134,6 +134,7 @@
 - Added unit tests for character actions (regenerate/delete).
 - Expanded generate-character tests to cover Replicate polling and profile reuse.
 - Added tests for profile update action.
+- Added tests for upload API route (json + multipart).
 - Fixed build error by avoiding reassignment of const payload when checking existing profile.
 ### Problems & Resolutions (detailed)
 1. **better-sqlite3 native module mismatch (Node 18 vs 22):** Rebuilt module against the active Node version.
