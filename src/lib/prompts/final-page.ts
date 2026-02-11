@@ -92,11 +92,12 @@ export function buildFinalPagePrompt(input: {
 export function buildFinalPageRequestPayload(input: {
   prompt: string;
   storyboardReferenceUrl: string;
+  characterReferenceUrl: string;
 }) {
   return {
     prompt: input.prompt,
     aspect_ratio: FINAL_PAGE_ASPECT_RATIO,
     output_format: "png",
-    image: input.storyboardReferenceUrl,
+    image: [input.storyboardReferenceUrl, input.characterReferenceUrl],
   };
 }

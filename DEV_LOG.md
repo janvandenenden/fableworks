@@ -111,6 +111,30 @@
 - Ran targeted suite:
   - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 5: bulk character selector + tabbed cards + dual image refs)
+
+### Actions
+- Added top-level bulk character selector for final pages:
+  - `src/components/admin/final-pages-bulk-controls.tsx`
+  - Wired into `src/app/admin/stories/[id]/pages/page.tsx`.
+  - Bulk generation can target a chosen character with selected variant.
+- Updated per-scene final page cards to tabbed layout:
+  - `src/components/admin/final-page-card.tsx`
+  - Tabs:
+    - `Images` (storyboard vs final + versions)
+    - `Character + Prompt` (character picker + exact prompt editor)
+- Updated final page payload construction to include both references:
+  - `src/lib/prompts/final-page.ts`
+  - Request now sends `image: [storyboardReferenceUrl, characterReferenceUrl]`.
+  - Adjusted action validation/parsing in `src/app/admin/stories/[id]/pages/actions.ts` to accept both string and array image formats for run reuse compatibility.
+- Improved scene/bulk data wiring:
+  - Added selected-variant metadata per character to scene view data in `src/app/admin/stories/[id]/pages/page.tsx`.
+  - Added character context display in run history and request preview payload.
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

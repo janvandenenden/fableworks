@@ -2,8 +2,8 @@ import Link from "next/link";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
-import { generateFinalPagesAction } from "@/app/admin/stories/[id]/pages/actions";
 import { FinalPagesView } from "@/components/admin/final-pages-view";
+import { FinalPagesBulkControls } from "@/components/admin/final-pages-bulk-controls";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildFinalPagePrompt } from "@/lib/prompts/final-page";
@@ -250,6 +250,7 @@ export default async function FinalPagesPage({
     name: character.name,
     status: character.status,
     hasSelectedVariant: selectedVariantByCharacterId.has(character.id),
+    selectedVariantImageUrl: selectedVariantByCharacterId.get(character.id) ?? null,
   }));
   const characterRows =
     story.characterId
@@ -371,6 +372,7 @@ export default async function FinalPagesPage({
       availableCharacters,
       defaultCharacterId,
       hasStoryLinkedCharacter: Boolean(story.characterId),
+      storyLinkedCharacterId: story.characterId ?? null,
       versions: versions.map((page) => ({
         id: page.id,
         version: page.version ?? 1,
@@ -385,6 +387,13 @@ export default async function FinalPagesPage({
   const hasAnySelectableCharacter = availableCharacters.some(
     (character) => character.hasSelectedVariant
   );
+  const bulkDefaultCharacterId = (() => {
+    if (story.characterId && selectedVariantByCharacterId.has(story.characterId)) {
+      return story.characterId;
+    }
+    const fallback = availableCharacters.find((character) => character.hasSelectedVariant);
+    return fallback?.id ?? null;
+  })();
 
   return (
     <div className="space-y-6">
@@ -426,10 +435,11 @@ export default async function FinalPagesPage({
               Generate missing pages in bulk, then review and regenerate per scene.
               Each scene card lets you choose a different character for testing.
             </p>
-            <form action={generateFinalPagesAction}>
-              <input type="hidden" name="storyId" value={id} />
-              <Button type="submit">Generate Final Pages</Button>
-            </form>
+            <FinalPagesBulkControls
+              storyId={id}
+              characters={availableCharacters}
+              defaultCharacterId={bulkDefaultCharacterId}
+            />
           </CardContent>
         </Card>
       )}

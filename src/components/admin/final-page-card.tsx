@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 function formatTimestamp(value: string | null): string {
@@ -61,13 +62,20 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
   }, [scene.defaultCharacterId]);
 
   const hasUnsavedPrompt = prompt !== savedPromptBase;
+  const storyLinkedCharacter = scene.availableCharacters.find(
+    (candidate) => candidate.id === scene.storyLinkedCharacterId
+  );
   const selectedCharacter = scene.availableCharacters.find(
     (candidate) => candidate.id === characterId
   );
   const canGenerateWithSelectedCharacter =
     characterId === "__none"
-      ? scene.hasStoryLinkedCharacter
+      ? Boolean(storyLinkedCharacter?.hasSelectedVariant)
       : Boolean(selectedCharacter?.hasSelectedVariant);
+  const effectiveCharacterReferenceUrl =
+    characterId === "__none"
+      ? storyLinkedCharacter?.selectedVariantImageUrl ?? null
+      : selectedCharacter?.selectedVariantImageUrl ?? null;
 
   const requestPreview = useMemo(
     () =>
@@ -75,14 +83,16 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
         {
           prompt,
           character_id: characterId === "__none" ? null : characterId,
-          image: scene.storyboardImageUrl,
+          image: effectiveCharacterReferenceUrl
+            ? [scene.storyboardImageUrl, effectiveCharacterReferenceUrl]
+            : [scene.storyboardImageUrl],
           aspect_ratio: "4:3",
           output_format: "png",
         },
         null,
         2
       ),
-    [characterId, prompt, scene.storyboardImageUrl]
+    [characterId, effectiveCharacterReferenceUrl, prompt, scene.storyboardImageUrl]
   );
 
   function generatePage() {
@@ -292,145 +302,165 @@ export function FinalPageCard({ scene }: { scene: FinalPageSceneData }) {
       </CardHeader>
 
       <CardContent className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Storyboard reference</p>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-              {scene.storyboardImageUrl ? (
-                <Image
-                  src={scene.storyboardImageUrl}
-                  alt={`Storyboard scene ${scene.sceneNumber}`}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
+        <Tabs defaultValue="images" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="images">Images</TabsTrigger>
+            <TabsTrigger value="prompt">Character + Prompt</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="images" className="space-y-3 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Storyboard reference</p>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
+                  {scene.storyboardImageUrl ? (
+                    <Image
+                      src={scene.storyboardImageUrl}
+                      alt={`Storyboard scene ${scene.sceneNumber}`}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                      No storyboard image
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Latest final page</p>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
+                  {scene.latestImageUrl ? (
+                    <Image
+                      src={scene.latestImageUrl}
+                      alt={`Final page scene ${scene.sceneNumber}`}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                      No final page yet
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Versions</p>
+              {scene.versions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No versions yet.</p>
               ) : (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  No storyboard image
+                <div className="space-y-1">
+                  {scene.versions
+                    .slice()
+                    .sort((a, b) => b.version - a.version)
+                    .map((versionRow) => (
+                      <div
+                        key={versionRow.id}
+                        className="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
+                      >
+                        <span>
+                          v{versionRow.version}
+                          {versionRow.isApproved ? " (approved)" : ""}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={versionRow.isApproved ? "secondary" : "outline"}
+                          onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
+                          disabled={isApproving}
+                        >
+                          {versionRow.isApproved ? "Unapprove" : "Approve"}
+                        </Button>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
-          </div>
+          </TabsContent>
 
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Latest final page</p>
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-              {scene.latestImageUrl ? (
-                <Image
-                  src={scene.latestImageUrl}
-                  alt={`Final page scene ${scene.sceneNumber}`}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
+          <TabsContent value="prompt" className="space-y-3 pt-3">
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p>Spread: {scene.spreadText ?? "none"}</p>
+              <p>Scene: {scene.sceneDescription ?? "none"}</p>
+            </div>
+
+            <div className="grid gap-1">
+              <Label htmlFor={`final-page-character-${scene.sceneId}`}>
+                Character for this generation
+              </Label>
+              <Select value={characterId} onValueChange={setCharacterId}>
+                <SelectTrigger id={`final-page-character-${scene.sceneId}`} className="w-full">
+                  <SelectValue placeholder="Select character" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Use story linked character</SelectItem>
+                  {scene.availableCharacters.map((character) => (
+                    <SelectItem key={character.id} value={character.id}>
+                      {character.name}
+                      {character.hasSelectedVariant ? "" : " (no selected image)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {characterId !== "__none" && selectedCharacter?.hasSelectedVariant === false ? (
+                <p className="text-xs text-amber-600">
+                  Selected character has no selected variant. Choose a variant on the character page.
+                </p>
+              ) : characterId === "__none" && !scene.hasStoryLinkedCharacter ? (
+                <p className="text-xs text-amber-600">
+                  No character is linked to this story. Pick a character above to generate this page.
+                </p>
+              ) : characterId === "__none" && !storyLinkedCharacter?.hasSelectedVariant ? (
+                <p className="text-xs text-amber-600">
+                  Story-linked character has no selected variant. Choose one on the character page or
+                  pick another character here.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="grid gap-1">
+              <Label htmlFor={`final-page-prompt-${scene.sceneId}`}>
+                Exact prompt sent to NanoBanana
+              </Label>
+              <Textarea
+                id={`final-page-prompt-${scene.sceneId}`}
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                rows={8}
+                className="text-xs"
+              />
+            </div>
+            {hasUnsavedPrompt ? (
+              <p className="text-xs text-amber-600">Unsaved prompt changes</p>
+            ) : null}
+
+            <Button
+              type="button"
+              variant={hasUnsavedPrompt ? "default" : "secondary"}
+              onClick={savePromptDraft}
+              disabled={
+                isSavingPrompt ||
+                isGenerating ||
+                !hasUnsavedPrompt ||
+                !canGenerateWithSelectedCharacter
+              }
+            >
+              {isSavingPrompt ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Saving Prompt...
+                </>
               ) : (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  No final page yet
-                </div>
+                "Save Prompt Draft"
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <p>Spread: {scene.spreadText ?? "none"}</p>
-          <p>Scene: {scene.sceneDescription ?? "none"}</p>
-        </div>
-
-        <div className="grid gap-1">
-          <Label htmlFor={`final-page-character-${scene.sceneId}`}>Character for this generation</Label>
-          <Select value={characterId} onValueChange={setCharacterId}>
-            <SelectTrigger id={`final-page-character-${scene.sceneId}`} className="w-full">
-              <SelectValue placeholder="Select character" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">Use story linked character</SelectItem>
-              {scene.availableCharacters.map((character) => (
-                <SelectItem key={character.id} value={character.id}>
-                  {character.name}
-                  {character.hasSelectedVariant ? "" : " (no selected image)"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {characterId !== "__none" && selectedCharacter?.hasSelectedVariant === false ? (
-            <p className="text-xs text-amber-600">
-              Selected character has no selected variant. Choose a variant on the character page.
-            </p>
-          ) : characterId === "__none" && !scene.hasStoryLinkedCharacter ? (
-            <p className="text-xs text-amber-600">
-              No character is linked to this story. Pick a character above to generate this page.
-            </p>
-          ) : null}
-        </div>
-
-        <div className="grid gap-1">
-          <Label htmlFor={`final-page-prompt-${scene.sceneId}`}>Exact prompt sent to NanoBanana</Label>
-          <Textarea
-            id={`final-page-prompt-${scene.sceneId}`}
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            rows={8}
-            className="text-xs"
-          />
-        </div>
-        {hasUnsavedPrompt ? (
-          <p className="text-xs text-amber-600">Unsaved prompt changes</p>
-        ) : null}
-
-        <Button
-          type="button"
-          variant={hasUnsavedPrompt ? "default" : "secondary"}
-          onClick={savePromptDraft}
-          disabled={
-            isSavingPrompt ||
-            isGenerating ||
-            !hasUnsavedPrompt ||
-            !canGenerateWithSelectedCharacter
-          }
-        >
-          {isSavingPrompt ? (
-            <>
-              <Loader2 className="mr-2 size-4 animate-spin" />
-              Saving Prompt...
-            </>
-          ) : (
-            "Save Prompt Draft"
-          )}
-        </Button>
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium">Versions</p>
-          {scene.versions.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No versions yet.</p>
-          ) : (
-            <div className="space-y-1">
-              {scene.versions
-                .slice()
-                .sort((a, b) => b.version - a.version)
-                .map((versionRow) => (
-                  <div
-                    key={versionRow.id}
-                    className="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
-                  >
-                    <span>
-                      v{versionRow.version}
-                      {versionRow.isApproved ? " (approved)" : ""}
-                    </span>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={versionRow.isApproved ? "secondary" : "outline"}
-                      onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
-                      disabled={isApproving}
-                    >
-                      {versionRow.isApproved ? "Unapprove" : "Approve"}
-                    </Button>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
+            </Button>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

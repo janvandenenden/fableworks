@@ -26,9 +26,11 @@ export type FinalPageSceneData = {
     name: string;
     status: string;
     hasSelectedVariant: boolean;
+    selectedVariantImageUrl: string | null;
   }>;
   defaultCharacterId: string | null;
   hasStoryLinkedCharacter: boolean;
+  storyLinkedCharacterId: string | null;
   versions: Array<{
     id: string;
     version: number;

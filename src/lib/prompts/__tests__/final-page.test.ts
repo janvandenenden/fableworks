@@ -40,13 +40,17 @@ describe("final page prompts", () => {
     const payload = buildFinalPageRequestPayload({
       prompt: "Final page prompt",
       storyboardReferenceUrl: "https://example.com/storyboard.png",
+      characterReferenceUrl: "https://example.com/character.png",
     });
 
     expect(payload).toEqual({
       prompt: "Final page prompt",
       aspect_ratio: FINAL_PAGE_ASPECT_RATIO,
       output_format: "png",
-      image: "https://example.com/storyboard.png",
+      image: [
+        "https://example.com/storyboard.png",
+        "https://example.com/character.png",
+      ],
     });
   });
 });

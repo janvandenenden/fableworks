@@ -55,7 +55,7 @@ const finalPageRequestPayloadSchema = z.object({
   prompt: z.string().min(1),
   aspect_ratio: z.string().min(1),
   output_format: z.string().min(1),
-  image: z.string().min(1),
+  image: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
 });
 
 function newId(): string {
@@ -305,12 +305,13 @@ async function generateSingleFinalPage(input: {
   });
 
   const prompt = input.promptOverride?.trim() || generatedPrompt;
-  const requestPayload =
-    input.requestPayloadOverride ??
-    buildFinalPageRequestPayload({
-      prompt,
-      storyboardReferenceUrl: panel.imageUrl,
-    });
+    const requestPayload =
+      input.requestPayloadOverride ??
+      buildFinalPageRequestPayload({
+        prompt,
+        storyboardReferenceUrl: panel.imageUrl,
+        characterReferenceUrl: selectedImage.imageUrl,
+      });
 
   const promptId = newId();
   await db.insert(schema.promptArtifacts).values({
@@ -492,19 +493,19 @@ export async function saveFinalPagePromptDraftAction(
     characterId: formData.get("characterId"),
   });
 
-  const panelRows = await db
-    .select()
-    .from(schema.storyboardPanels)
-    .where(eq(schema.storyboardPanels.sceneId, payload.sceneId))
-    .limit(1);
-  const panel = panelRows[0];
-  if (!panel || !panel.imageUrl) {
-    return { success: false, error: "Storyboard reference image is missing for this scene" };
+  const contextResult = await buildFinalPageGenerationContext({
+    storyId: payload.storyId,
+    sceneId: payload.sceneId,
+    characterIdOverride: payload.characterId ?? null,
+  });
+  if (!contextResult.success) {
+    return { success: false, error: contextResult.error };
   }
 
   const requestPayload = buildFinalPageRequestPayload({
     prompt: payload.promptOverride.trim(),
-    storyboardReferenceUrl: panel.imageUrl,
+    storyboardReferenceUrl: contextResult.data.panel.imageUrl,
+    characterReferenceUrl: contextResult.data.selectedImage.imageUrl,
   });
 
   await db.insert(schema.promptArtifacts).values({
@@ -514,9 +515,10 @@ export async function saveFinalPagePromptDraftAction(
     rawPrompt: payload.promptOverride.trim(),
     model: MODELS.nanoBanana,
     parameters: requestPayload,
-    structuredFields: payload.characterId
-      ? JSON.stringify({ characterId: payload.characterId })
-      : null,
+    structuredFields: JSON.stringify({
+      characterId: contextResult.data.characterId,
+      characterName: contextResult.data.characterName,
+    }),
     status: "success",
     createdAt: new Date(),
   });
