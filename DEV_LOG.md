@@ -1,5 +1,25 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 6 implementation (slice 1: final page prompt contract)
+
+### Actions
+- Added `src/lib/prompts/final-page.ts`:
+  - `FINAL_PAGE_ASPECT_RATIO`
+  - `buildFinalPagePrompt(...)`
+  - `buildFinalPageRequestPayload(...)`
+- Prompt contract now includes:
+  - storyboard composition constraints,
+  - selected character reference and invariants (`doNotChange`),
+  - scene-linked props,
+  - style preset + color palette consistency rules,
+  - explicit "no text/watermarks/borders" output constraints.
+- Added tests:
+  - `src/lib/prompts/__tests__/final-page.test.ts`
+
+### Tests
+- Ran targeted suite:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/storyboard.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions
