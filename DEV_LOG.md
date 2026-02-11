@@ -1,5 +1,33 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 8 implementation (slice 2: Stripe checkout wiring) [in progress]
+
+### Actions
+- Added Stripe helper module:
+  - `src/lib/stripe.ts`
+  - Centralized Stripe client initialization, webhook secret access, app base URL resolution, and checkout price config handling.
+- Added checkout session action:
+  - `src/app/(app)/create/checkout/actions.ts`
+  - Creates a pending `orders` row, opens Stripe Checkout Session, and stores session correlation metadata (`orderId`, `storyId`, `characterLabel`).
+- Added webhook endpoint:
+  - `src/app/api/webhooks/stripe/route.ts`
+  - Verifies Stripe signatures and handles:
+    - `checkout.session.completed` -> marks order paid, stores payment IDs, initializes `books` row (`pending_generation`).
+    - `checkout.session.expired` -> marks order expired.
+    - `payment_intent.payment_failed` -> marks order failed.
+- Wired customer checkout UI to Stripe session action:
+  - `src/app/(app)/create/checkout/page.tsx`
+  - Added story selection + optional character label selection form.
+  - Added canceled-checkout messaging.
+  - Removed temporary mock continue button in favor of real checkout redirect.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts` (pass)
+
+### Notes
+- Webhook idempotency and credit allocation are not implemented yet (tracked in Phase 8 CX4/CX2 follow-up slices).
+
 ## 2026-02-11 -- Phase 8 planning kickoff (customer commerce UX)
 
 ### Actions
