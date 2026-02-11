@@ -186,6 +186,21 @@
    - `next dev` fails because local Node is `18.16.0`, while Next.js 16 requires `>=20.9.0`.
    - Error surfaced by Playwright `webServer` startup.
 
+### Follow-up updates
+- Made bulk character selector always visible on final pages route:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Selector remains visible even when generation is blocked by prerequisites.
+  - Block reasons are now shown inline; generate action is disabled accordingly.
+- Extended bulk control component for disabled-state guidance:
+  - `src/components/admin/final-pages-bulk-controls.tsx`
+  - Added story-linked character validity handling and prerequisite reason display.
+- Hardened E2E locator strategy:
+  - `e2e/final-pages.spec.ts`
+  - Switched from label-dependent combobox lookup to deterministic combobox-first selector.
+  - Scoped request-preview assertions to the dialog content.
+- Verified targeted tests:
+  - `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

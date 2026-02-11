@@ -23,14 +23,22 @@ export function FinalPagesBulkControls({
   storyId,
   characters,
   defaultCharacterId,
+  canUseStoryLinkedCharacter,
+  blockedReasons,
 }: {
   storyId: string;
   characters: CharacterOption[];
   defaultCharacterId: string | null;
+  canUseStoryLinkedCharacter: boolean;
+  blockedReasons?: string[];
 }) {
   const [characterId, setCharacterId] = useState(defaultCharacterId ?? "__none");
   const selectedCharacter = characters.find((character) => character.id === characterId);
-  const canRunBulk = characterId === "__none" ? true : Boolean(selectedCharacter?.hasSelectedVariant);
+  const canRunForCharacter =
+    characterId === "__none"
+      ? canUseStoryLinkedCharacter
+      : Boolean(selectedCharacter?.hasSelectedVariant);
+  const canRunBulk = canRunForCharacter && (blockedReasons?.length ?? 0) === 0;
 
   return (
     <form action={generateFinalPagesAction} className="space-y-3">
@@ -60,6 +68,18 @@ export function FinalPagesBulkControls({
         <p className="text-xs text-muted-foreground">
           Choose a character to generate all missing pages for that one character.
         </p>
+        {characterId === "__none" && !canUseStoryLinkedCharacter ? (
+          <p className="text-xs text-amber-600">
+            Story-linked character has no selected variant. Pick a character with a selected variant.
+          </p>
+        ) : null}
+        {blockedReasons && blockedReasons.length > 0 ? (
+          <div className="space-y-1 text-xs text-amber-600">
+            {blockedReasons.map((reason) => (
+              <p key={reason}>- {reason}</p>
+            ))}
+          </div>
+        ) : null}
       </div>
       <Button type="submit" disabled={!canRunBulk}>
         Generate Final Pages

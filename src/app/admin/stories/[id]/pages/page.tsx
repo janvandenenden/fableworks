@@ -395,6 +395,14 @@ export default async function FinalPagesPage({
     return fallback?.id ?? null;
   })();
 
+  const blockedReasons = [
+    missingScenes ? "Generate scenes first." : null,
+    missingStoryboard ? "Generate all storyboard panel images first." : null,
+  ].filter((value): value is string => Boolean(value));
+  const canUseStoryLinkedCharacter = Boolean(
+    story.characterId && selectedVariantByCharacterId.has(story.characterId)
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -404,17 +412,28 @@ export default async function FinalPagesPage({
         </p>
       </div>
 
-      {(missingScenes || missingStoryboard || !hasAnySelectableCharacter) ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Prerequisites</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            {missingScenes ? <p>- Generate scenes first.</p> : null}
-            {missingStoryboard ? <p>- Generate all storyboard panel images first.</p> : null}
-            {!hasAnySelectableCharacter ? (
-              <p>- Select at least one character image variant first.</p>
-            ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Generate Final Pages</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Generate missing pages in bulk, then review and regenerate per scene.
+            Each scene card lets you choose a different character for testing.
+          </p>
+          <FinalPagesBulkControls
+            storyId={id}
+            characters={availableCharacters}
+            defaultCharacterId={bulkDefaultCharacterId}
+            canUseStoryLinkedCharacter={canUseStoryLinkedCharacter}
+            blockedReasons={blockedReasons}
+          />
+          {!hasAnySelectableCharacter ? (
+            <p className="text-xs text-amber-600">
+              Select at least one character image variant first.
+            </p>
+          ) : null}
+          {(missingScenes || missingStoryboard) ? (
             <div className="flex gap-2">
               <Button asChild variant="outline" size="sm">
                 <Link href={`/admin/stories/${id}`}>Back to Story</Link>
@@ -423,26 +442,9 @@ export default async function FinalPagesPage({
                 <Link href={`/admin/stories/${id}/storyboard`}>Open Storyboard</Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generate Final Pages</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Generate missing pages in bulk, then review and regenerate per scene.
-              Each scene card lets you choose a different character for testing.
-            </p>
-            <FinalPagesBulkControls
-              storyId={id}
-              characters={availableCharacters}
-              defaultCharacterId={bulkDefaultCharacterId}
-            />
-          </CardContent>
-        </Card>
-      )}
+          ) : null}
+        </CardContent>
+      </Card>
 
       <FinalPagesView scenes={sceneViewData} />
     </div>

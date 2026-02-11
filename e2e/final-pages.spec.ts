@@ -126,7 +126,7 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
     ).toBeVisible();
 
     // Switch to the second character in bulk selector.
-    await page.getByLabel("Character for bulk generation").click();
+    await page.getByRole("combobox").first().click();
     await page.getByRole("option", { name: /Eli E2E/ }).click();
 
     // Verify scene card tabs are present.
@@ -140,9 +140,10 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
 
     // Open request preview and verify both storyboard + character references are included.
     await page.getByRole("button", { name: "Full request preview" }).first().click();
-    await expect(page.getByText('"image": [')).toBeVisible();
-    await expect(page.getByText("https://example.com/e2e-storyboard.png")).toBeVisible();
-    await expect(page.getByText("https://example.com/e2e-char2.png")).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Full request preview" });
+    await expect(dialog).toContainText('"image": [');
+    await expect(dialog).toContainText("https://example.com/e2e-storyboard.png");
+    await expect(dialog).toContainText("https://example.com/e2e-char2.png");
   } finally {
     cleanupFinalPagesFixture(ids);
   }
