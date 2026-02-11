@@ -1,5 +1,18 @@
 # Fableworks Development Log
 
+## 2026-02-11 -- Phase 8 planning kickoff (customer commerce UX)
+
+### Actions
+- Confirmed Phase 7 implementation is merged and phase tracking has moved to Phase 8.
+- Created detailed Phase 8 execution plan:
+  - `PHASE8_PLAN.md`
+  - Focused on customer create flow, Stripe checkout/webhooks, customer book/status pages, and reliability guardrails.
+- Added explicit Phase 8 validation loop checklist for closure criteria before launch.
+- Updated Phase 8 plan with monetization guardrails:
+  - high-cost generation locked behind successful payment,
+  - post-purchase re-roll credits model,
+  - server-side credit enforcement and anti-abuse controls.
+
 ## 2026-02-11 -- Phase 7 implementation (slice 6: preflight checklist + Lulu diagnostics history)
 
 ### Actions
