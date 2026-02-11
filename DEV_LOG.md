@@ -118,3 +118,4 @@
 - Fixed Inngest character status updates to use direct `eq(...)` filters to avoid sqlite binding errors.
 - Stripped code fences from OpenAI vision output before JSON parsing in character generation.
 - Upserted character profiles on regenerate and improved Replicate output parsing/error handling.
+- Loosened vision profile parsing to coerce numbers into strings and expanded Replicate URL extraction.

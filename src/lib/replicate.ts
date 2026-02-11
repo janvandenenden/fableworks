@@ -56,7 +56,26 @@ export async function createPrediction(
 
 export function extractImageUrl(output: unknown): string | null {
   if (typeof output === "string") return output;
-  if (Array.isArray(output) && typeof output[0] === "string") return output[0];
+  if (Array.isArray(output)) {
+    const first = output[0] as unknown;
+    if (typeof first === "string") return first;
+    if (
+      first &&
+      typeof first === "object" &&
+      "url" in first &&
+      typeof (first as { url: unknown }).url === "string"
+    ) {
+      return (first as { url: string }).url;
+    }
+    if (
+      first &&
+      typeof first === "object" &&
+      "image" in first &&
+      typeof (first as { image: unknown }).image === "string"
+    ) {
+      return (first as { image: string }).image;
+    }
+  }
   if (
     output &&
     typeof output === "object" &&
@@ -64,8 +83,45 @@ export function extractImageUrl(output: unknown): string | null {
     Array.isArray((output as { output: unknown }).output)
   ) {
     const value = (output as { output: unknown }).output;
-    if (Array.isArray(value) && typeof value[0] === "string") {
-      return value[0];
+    if (Array.isArray(value)) {
+      const first = value[0] as unknown;
+      if (typeof first === "string") return first;
+      if (
+        first &&
+        typeof first === "object" &&
+        "url" in first &&
+        typeof (first as { url: unknown }).url === "string"
+      ) {
+        return (first as { url: string }).url;
+      }
+      if (
+        first &&
+        typeof first === "object" &&
+        "image" in first &&
+        typeof (first as { image: unknown }).image === "string"
+      ) {
+        return (first as { image: string }).image;
+      }
+    }
+  }
+  if (
+    output &&
+    typeof output === "object" &&
+    "images" in output &&
+    Array.isArray((output as { images: unknown }).images)
+  ) {
+    const value = (output as { images: unknown }).images;
+    if (Array.isArray(value)) {
+      const first = value[0] as unknown;
+      if (typeof first === "string") return first;
+      if (
+        first &&
+        typeof first === "object" &&
+        "url" in first &&
+        typeof (first as { url: unknown }).url === "string"
+      ) {
+        return (first as { url: string }).url;
+      }
     }
   }
   if (

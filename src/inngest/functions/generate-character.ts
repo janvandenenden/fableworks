@@ -13,22 +13,40 @@ const characterCreatedSchema = z.object({
   stylePreset: z.string().optional(),
 });
 
+const stringish = z
+  .preprocess(
+    (value) =>
+      value === null || value === undefined ? value : String(value),
+    z.string()
+  )
+  .optional()
+  .nullable();
+
+const stringArray = z
+  .preprocess(
+    (value) =>
+      Array.isArray(value) ? value.map((item) => String(item)) : value,
+    z.array(z.string())
+  )
+  .optional()
+  .nullable();
+
 const visionProfileSchema = z.object({
-  approxAge: z.string().nullish(),
-  hairColor: z.string().nullish(),
-  hairLength: z.string().nullish(),
-  hairTexture: z.string().nullish(),
-  hairStyle: z.string().nullish(),
-  faceShape: z.string().nullish(),
-  eyeColor: z.string().nullish(),
-  eyeShape: z.string().nullish(),
-  skinTone: z.string().nullish(),
-  clothing: z.string().nullish(),
-  distinctiveFeatures: z.string().nullish(),
-  colorPalette: z.array(z.string()).nullish(),
-  personalityTraits: z.array(z.string()).nullish(),
-  doNotChange: z.array(z.string()).nullish(),
-  rawVisionDescription: z.string().nullish(),
+  approxAge: stringish,
+  hairColor: stringish,
+  hairLength: stringish,
+  hairTexture: stringish,
+  hairStyle: stringish,
+  faceShape: stringish,
+  eyeColor: stringish,
+  eyeShape: stringish,
+  skinTone: stringish,
+  clothing: stringish,
+  distinctiveFeatures: stringish,
+  colorPalette: stringArray,
+  personalityTraits: stringArray,
+  doNotChange: stringArray,
+  rawVisionDescription: stringish,
 });
 
 function newId(): string {
@@ -175,12 +193,19 @@ export const generateCharacter = inngest.createFunction(
 
     const tempUrl = extractImageUrl(predictionOutput);
     if (!tempUrl) {
+      const outputSnippet = (() => {
+        try {
+          return JSON.stringify(predictionOutput).slice(0, 1000);
+        } catch {
+          return "unserializable output";
+        }
+      })();
       await step.run("mark-prompt-failed", () =>
         db
           .update(schema.promptArtifacts)
           .set({
             status: "failed",
-            errorMessage: "Replicate did not return an image URL",
+            errorMessage: `Replicate did not return an image URL. Output: ${outputSnippet}`,
           })
           .where(eq(schema.promptArtifacts.id, promptId))
       );
