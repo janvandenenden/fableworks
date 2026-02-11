@@ -97,7 +97,11 @@
 - Add character prompt builder and tests.
 - Add Inngest client + function stubs for character generation.
 
-### Actions
+### Actions (summary)
+- Implemented R2 upload flow (server-side), character pipeline via Inngest, and admin UI for create/detail/profile/gallery/regenerate/delete.
+- Hardened character generation (vision parsing, sqlite-safe inserts, Replicate polling and output handling).
+- Added tests: unit (actions, generate-character polling/profile reuse, upload route) and Playwright E2E (creation, generation skipped).
+### Actions (detailed)
 - Added character prompt builder with style presets (`src/lib/prompts/character.ts`) and tests.
 - Added Inngest client (`src/inngest/client.ts`), persist-replicate-output function, and function registry.
 - Added Inngest Next.js route handler (`src/app/api/inngest/route.ts`).
@@ -106,7 +110,7 @@
 - Added upload API route that returns presigned R2 upload URLs.
 - Added initial unit test for `generate-character` Inngest function with mocked dependencies.
 - Updated character form to upload a child photo to R2 and store the public URL using `{userId}/{characterId}` key structure.
-- Switched upload flow to send file through `/api/upload` (server-side upload) to avoid browser CORS issues with presigned URLs.
+- Switched upload flow to send file through `/api/upload` (server-side upload) to avoid browser CORS issues.
 - Improved upload route error reporting and blob handling to diagnose form-data issues.
 - Normalized character creation to avoid setting `userId` when running locally without users, preventing FK failures.
 - Updated character creation to proceed even if Inngest event send fails, and route to detail page on success.
