@@ -69,6 +69,14 @@
 - Ran targeted suite:
   - `npm run test -- src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
 
+### Fixes
+- Fixed runtime bug in `StoryEditor`:
+  - `characters is not defined`
+  - Root cause: props were typed but `characters` and `selectedCharacterImageUrl` were not destructured in component args.
+  - File: `src/components/admin/story-editor.tsx`
+- Verified with targeted test:
+  - `npm run test -- src/lib/prompts/__tests__/story.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

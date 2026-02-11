@@ -19,6 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function StoryEditor({
   story,
+  characters,
+  selectedCharacterImageUrl,
   canRegenerateManuscript,
 }: {
   story: {
