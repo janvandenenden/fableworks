@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "path";
 
 test("create character without generation", async ({ page }) => {
+  // Stub upload to avoid hitting R2 and skip Inngest-driven generation.
   await page.route("**/api/upload", async (route) => {
     const json = {
       success: true,
