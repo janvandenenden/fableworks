@@ -98,6 +98,7 @@ export default async function StoryDetailPage({ params }: Props) {
   const hasManuscript =
     !!manuscriptData || !!story.title?.trim() || !!story.storyArc?.trim();
   const hasScenes = scenes.length > 0;
+  const hasStoryboard = story.status.includes("storyboard") || story.status.includes("pages");
   const propsByScene = propsBible.reduce<Record<number, string[]>>(
     (acc, prop) => {
       if (!prop.appearsInScenes) return acc;
@@ -147,6 +148,15 @@ export default async function StoryDetailPage({ params }: Props) {
           ) : (
             <Button variant="outline" disabled>
               Open Storyboard
+            </Button>
+          )}
+          {hasStoryboard ? (
+            <Button asChild variant="outline">
+              <Link href={`/admin/stories/${id}/pages`}>Open Final Pages</Link>
+            </Button>
+          ) : (
+            <Button variant="outline" disabled>
+              Open Final Pages
             </Button>
           )}
           <StoryDeleteButton storyId={id} />

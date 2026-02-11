@@ -20,6 +20,37 @@
 - Ran targeted suite:
   - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/storyboard.test.ts` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 2: final pages actions + UI scaffold)
+
+### Actions
+- Added final pages server actions:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - Implemented:
+    - `generateFinalPagesAction` (bulk)
+    - `generateFinalPageAction` (single scene)
+    - `generateFinalPageFromRunAction` (reuse run payload)
+    - `saveFinalPagePromptDraftAction`
+    - `approveFinalPageVersionAction`
+- Added final pages admin route:
+  - `src/app/admin/stories/[id]/pages/page.tsx`
+  - Includes prerequisite gating (scenes/storyboard/character link/selected character variant) and bulk generation entrypoint.
+- Added final pages UI components:
+  - `src/components/admin/final-pages-view.tsx`
+  - `src/components/admin/final-page-card.tsx`
+  - Includes side-by-side storyboard vs final preview, prompt draft editing, request preview, run history reuse, and version approval controls.
+- Updated story detail navigation:
+  - `src/app/admin/stories/[id]/page.tsx`
+  - Added `Open Final Pages` button when storyboard/pages statuses are present.
+
+### Tests
+- Ran targeted suites:
+  - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
+  - `npm run test -- src/app/admin/stories/[id]/storyboard/__tests__/actions.test.ts` (pass)
+
+### Problems
+1. `npx tsc --noEmit` still fails in this environment due local TypeScript binary resolution:
+   - `Cannot find module '../lib/tsc.js'` from `node_modules/.bin/tsc`.
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions

@@ -1,0 +1,624 @@
+"use server";
+
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
+import { db, schema } from "@/db";
+import {
+  MODELS,
+  createPrediction,
+  extractImageUrl,
+  getReplicateClient,
+} from "@/lib/replicate";
+import { copyFromTempUrl } from "@/lib/r2";
+import {
+  buildFinalPagePrompt,
+  buildFinalPageRequestPayload,
+} from "@/lib/prompts/final-page";
+import { revalidatePath } from "next/cache";
+
+type ActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+const storyIdSchema = z.object({
+  storyId: z.string().uuid(),
+});
+
+const pageImageSchema = z.object({
+  storyId: z.string().uuid(),
+  sceneId: z.string().uuid(),
+  promptOverride: z.string().optional(),
+});
+
+const pageImageFromRunSchema = z.object({
+  storyId: z.string().uuid(),
+  sceneId: z.string().uuid(),
+  runArtifactId: z.string().uuid(),
+});
+
+const pagePromptDraftSchema = z.object({
+  storyId: z.string().uuid(),
+  sceneId: z.string().uuid(),
+  promptOverride: z.string().min(1, "Prompt cannot be empty"),
+});
+
+const approveFinalPageSchema = z.object({
+  storyId: z.string().uuid(),
+  finalPageId: z.string().uuid(),
+  approved: z.enum(["true", "false"]),
+});
+
+const finalPageRequestPayloadSchema = z.object({
+  prompt: z.string().min(1),
+  aspect_ratio: z.string().min(1),
+  output_format: z.string().min(1),
+  image: z.string().min(1),
+});
+
+function newId(): string {
+  return crypto.randomUUID();
+}
+
+function parseSceneNumbers(value: string | null): number[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item) && item > 0);
+  } catch {
+    return [];
+  }
+}
+
+function parseStringArray(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item) => String(item));
+  } catch {
+    return [];
+  }
+}
+
+function parseRequestPayload(
+  value: unknown
+): z.infer<typeof finalPageRequestPayloadSchema> | null {
+  if (!value) return null;
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  const result = finalPageRequestPayloadSchema.safeParse(parsed);
+  return result.success ? result.data : null;
+}
+
+async function buildFinalPageGenerationContext(input: {
+  storyId: string;
+  sceneId: string;
+}) {
+  const storyRows = await db
+    .select()
+    .from(schema.stories)
+    .where(eq(schema.stories.id, input.storyId))
+    .limit(1);
+  const story = storyRows[0];
+  if (!story) {
+    return { success: false as const, error: "Story not found" };
+  }
+  if (!story.characterId) {
+    return {
+      success: false as const,
+      error: "Story has no linked character. Link a character before generating pages.",
+    };
+  }
+
+  const characterRows = await db
+    .select({
+      stylePreset: schema.characters.stylePreset,
+    })
+    .from(schema.characters)
+    .where(eq(schema.characters.id, story.characterId))
+    .limit(1);
+  const character = characterRows[0];
+  if (!character) {
+    return { success: false as const, error: "Character not found for this story" };
+  }
+
+  const sceneRows = await db
+    .select()
+    .from(schema.storyScenes)
+    .where(eq(schema.storyScenes.id, input.sceneId))
+    .limit(1);
+  const scene = sceneRows[0];
+  if (!scene) {
+    return { success: false as const, error: "Scene not found" };
+  }
+  if (scene.storyId !== input.storyId) {
+    return {
+      success: false as const,
+      error: "Scene does not belong to this story",
+    };
+  }
+
+  const panelRows = await db
+    .select()
+    .from(schema.storyboardPanels)
+    .where(eq(schema.storyboardPanels.sceneId, scene.id))
+    .limit(1);
+  const panel = panelRows[0];
+  if (!panel || !panel.imageUrl) {
+    return {
+      success: false as const,
+      error: `Storyboard panel image is missing for scene ${scene.sceneNumber}`,
+    };
+  }
+
+  const selectedImageRows = await db
+    .select({
+      imageUrl: schema.characterImages.imageUrl,
+    })
+    .from(schema.characterImages)
+    .where(
+      and(
+        eq(schema.characterImages.characterId, story.characterId),
+        eq(schema.characterImages.isSelected, true)
+      )
+    )
+    .limit(1);
+  const selectedImage = selectedImageRows[0];
+  if (!selectedImage) {
+    return {
+      success: false as const,
+      error: "No selected character image found. Select a character variant first.",
+    };
+  }
+
+  const profileRows = await db
+    .select({
+      approxAge: schema.characterProfiles.approxAge,
+      hairColor: schema.characterProfiles.hairColor,
+      hairLength: schema.characterProfiles.hairLength,
+      hairTexture: schema.characterProfiles.hairTexture,
+      hairStyle: schema.characterProfiles.hairStyle,
+      faceShape: schema.characterProfiles.faceShape,
+      eyeColor: schema.characterProfiles.eyeColor,
+      eyeShape: schema.characterProfiles.eyeShape,
+      skinTone: schema.characterProfiles.skinTone,
+      clothing: schema.characterProfiles.clothing,
+      distinctiveFeatures: schema.characterProfiles.distinctiveFeatures,
+      colorPalette: schema.characterProfiles.colorPalette,
+      doNotChange: schema.characterProfiles.doNotChange,
+    })
+    .from(schema.characterProfiles)
+    .where(eq(schema.characterProfiles.characterId, story.characterId))
+    .limit(1);
+  const profile = profileRows[0];
+  if (!profile) {
+    return {
+      success: false as const,
+      error: "Character profile not found. Regenerate character profile first.",
+    };
+  }
+
+  const allProps = await db
+    .select({
+      title: schema.propsBibleEntries.title,
+      description: schema.propsBibleEntries.description,
+      appearsInScenes: schema.propsBibleEntries.appearsInScenes,
+    })
+    .from(schema.propsBibleEntries)
+    .where(eq(schema.propsBibleEntries.storyId, input.storyId));
+  const linkedProps = allProps
+    .filter((prop) => parseSceneNumbers(prop.appearsInScenes).includes(scene.sceneNumber))
+    .map((prop) => ({
+      title: prop.title,
+      description: prop.description,
+    }));
+
+  const profileSummary = [
+    profile.approxAge ? `approx age: ${profile.approxAge}` : null,
+    profile.hairColor ? `hair color: ${profile.hairColor}` : null,
+    profile.hairLength ? `hair length: ${profile.hairLength}` : null,
+    profile.hairTexture ? `hair texture: ${profile.hairTexture}` : null,
+    profile.hairStyle ? `hair style: ${profile.hairStyle}` : null,
+    profile.faceShape ? `face shape: ${profile.faceShape}` : null,
+    profile.eyeColor ? `eye color: ${profile.eyeColor}` : null,
+    profile.eyeShape ? `eye shape: ${profile.eyeShape}` : null,
+    profile.skinTone ? `skin tone: ${profile.skinTone}` : null,
+    profile.clothing ? `clothing: ${profile.clothing}` : null,
+    profile.distinctiveFeatures ? `distinctive features: ${profile.distinctiveFeatures}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  const colorPalette = parseStringArray(profile.colorPalette ?? null);
+  const doNotChange = parseStringArray(profile.doNotChange ?? null);
+
+  return {
+    success: true as const,
+    data: {
+      story,
+      scene,
+      panel,
+      selectedImage,
+      linkedProps,
+      colorPalette,
+      doNotChange,
+      stylePreset: character.stylePreset,
+      characterProfileSummary: profileSummary,
+    },
+  };
+}
+
+async function generateSingleFinalPage(input: {
+  storyId: string;
+  sceneId: string;
+  promptOverride?: string | null;
+  requestPayloadOverride?: z.infer<typeof finalPageRequestPayloadSchema> | null;
+}): Promise<ActionResult<{ id: string }>> {
+  const contextResult = await buildFinalPageGenerationContext({
+    storyId: input.storyId,
+    sceneId: input.sceneId,
+  });
+  if (!contextResult.success) {
+    return { success: false, error: contextResult.error };
+  }
+
+  const { story, scene, panel, selectedImage, linkedProps, colorPalette, doNotChange } =
+    contextResult.data;
+
+  const generatedPrompt = buildFinalPagePrompt({
+    sceneNumber: scene.sceneNumber,
+    spreadText: scene.spreadText,
+    sceneDescription: scene.sceneDescription,
+    storyboardComposition: panel.composition,
+    storyboardBackground: panel.background,
+    storyboardForeground: panel.foreground,
+    storyboardEnvironment: panel.environment,
+    storyboardCharacterPose: panel.characterPose,
+    stylePreset: contextResult.data.stylePreset,
+    colorPalette,
+    characterProfileSummary: contextResult.data.characterProfileSummary,
+    doNotChange,
+    linkedProps,
+    characterReferenceUrl: selectedImage.imageUrl,
+    storyboardReferenceUrl: panel.imageUrl,
+  });
+
+  const prompt = input.promptOverride?.trim() || generatedPrompt;
+  const requestPayload =
+    input.requestPayloadOverride ??
+    buildFinalPageRequestPayload({
+      prompt,
+      storyboardReferenceUrl: panel.imageUrl,
+    });
+
+  const promptId = newId();
+  await db.insert(schema.promptArtifacts).values({
+    id: promptId,
+    entityType: "final_page_image",
+    entityId: scene.id,
+    rawPrompt: requestPayload.prompt,
+    model: MODELS.nanoBanana,
+    parameters: requestPayload,
+    status: "running",
+    createdAt: new Date(),
+  });
+
+  try {
+    const prediction = await createPrediction(MODELS.nanoBanana, requestPayload);
+    const replicate = getReplicateClient();
+    let predictionOutput: unknown = null;
+    let predictionStatus = prediction.status;
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const result = await replicate.predictions.get(prediction.id);
+      predictionStatus = result.status;
+      if (result.status === "succeeded") {
+        predictionOutput = result.output;
+        break;
+      }
+      if (result.status === "failed" || result.status === "canceled") {
+        throw new Error(
+          `Replicate prediction ${result.status}: ${result.error ?? "unknown"}`
+        );
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5000);
+      });
+    }
+
+    if (!predictionOutput) {
+      throw new Error(`Replicate prediction still ${predictionStatus}`);
+    }
+
+    const tempUrl = extractImageUrl(predictionOutput);
+    if (!tempUrl) {
+      throw new Error("Replicate did not return an image URL for final page");
+    }
+
+    const existingPages = await db
+      .select({ version: schema.finalPages.version })
+      .from(schema.finalPages)
+      .where(eq(schema.finalPages.sceneId, scene.id))
+      .orderBy(asc(schema.finalPages.version));
+    const latestVersion = existingPages[existingPages.length - 1]?.version ?? 0;
+    const nextVersion = latestVersion + 1;
+
+    const finalPageId = newId();
+    const storageUrl = await copyFromTempUrl(
+      tempUrl,
+      `stories/${story.id}/pages/scene-${scene.sceneNumber}-v${nextVersion}.png`
+    );
+
+    await db.insert(schema.finalPages).values({
+      id: finalPageId,
+      sceneId: scene.id,
+      imageUrl: storageUrl,
+      promptArtifactId: promptId,
+      version: nextVersion,
+      isApproved: false,
+    });
+
+    await db.insert(schema.generatedAssets).values({
+      id: newId(),
+      type: "final_page",
+      entityId: finalPageId,
+      storageUrl,
+      mimeType: "image/png",
+      metadata: JSON.stringify({ promptId, sceneId: scene.id, version: nextVersion }),
+    });
+
+    await db
+      .update(schema.promptArtifacts)
+      .set({
+        status: "success",
+        resultUrl: storageUrl,
+      })
+      .where(eq(schema.promptArtifacts.id, promptId));
+
+    return { success: true, data: { id: finalPageId } };
+  } catch (error) {
+    await db
+      .update(schema.promptArtifacts)
+      .set({
+        status: "failed",
+        errorMessage: error instanceof Error ? error.message : "Final page generation failed",
+      })
+      .where(eq(schema.promptArtifacts.id, promptId));
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to generate final page",
+    };
+  }
+}
+
+export async function generateFinalPageAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = pageImageSchema.parse({
+    storyId: formData.get("storyId"),
+    sceneId: formData.get("sceneId"),
+    promptOverride: formData.get("promptOverride"),
+  });
+  const result = await generateSingleFinalPage({
+    storyId: payload.storyId,
+    sceneId: payload.sceneId,
+    promptOverride: payload.promptOverride ?? null,
+  });
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
+  return result;
+}
+
+export async function generateFinalPageFromRunAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = pageImageFromRunSchema.parse({
+    storyId: formData.get("storyId"),
+    sceneId: formData.get("sceneId"),
+    runArtifactId: formData.get("runArtifactId"),
+  });
+
+  const artifactRows = await db
+    .select()
+    .from(schema.promptArtifacts)
+    .where(eq(schema.promptArtifacts.id, payload.runArtifactId))
+    .limit(1);
+  const artifact = artifactRows[0];
+  if (!artifact) return { success: false, error: "Run artifact not found" };
+  if (artifact.entityType !== "final_page_image") {
+    return { success: false, error: "Invalid run artifact type" };
+  }
+  if (artifact.entityId !== payload.sceneId) {
+    return { success: false, error: "Run artifact does not belong to this scene" };
+  }
+
+  const parsedPayload = parseRequestPayload(artifact.parameters);
+  if (!parsedPayload) {
+    return { success: false, error: "Run artifact payload is missing or invalid" };
+  }
+
+  const result = await generateSingleFinalPage({
+    storyId: payload.storyId,
+    sceneId: payload.sceneId,
+    requestPayloadOverride: parsedPayload,
+  });
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
+  return result;
+}
+
+export async function saveFinalPagePromptDraftAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = pagePromptDraftSchema.parse({
+    storyId: formData.get("storyId"),
+    sceneId: formData.get("sceneId"),
+    promptOverride: formData.get("promptOverride"),
+  });
+
+  const panelRows = await db
+    .select()
+    .from(schema.storyboardPanels)
+    .where(eq(schema.storyboardPanels.sceneId, payload.sceneId))
+    .limit(1);
+  const panel = panelRows[0];
+  if (!panel || !panel.imageUrl) {
+    return { success: false, error: "Storyboard reference image is missing for this scene" };
+  }
+
+  const requestPayload = buildFinalPageRequestPayload({
+    prompt: payload.promptOverride.trim(),
+    storyboardReferenceUrl: panel.imageUrl,
+  });
+
+  await db.insert(schema.promptArtifacts).values({
+    id: newId(),
+    entityType: "final_page_prompt_draft",
+    entityId: payload.sceneId,
+    rawPrompt: payload.promptOverride.trim(),
+    model: MODELS.nanoBanana,
+    parameters: requestPayload,
+    status: "success",
+    createdAt: new Date(),
+  });
+
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  return { success: true, data: { id: payload.sceneId } };
+}
+
+export async function approveFinalPageVersionAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = approveFinalPageSchema.parse({
+    storyId: formData.get("storyId"),
+    finalPageId: formData.get("finalPageId"),
+    approved: formData.get("approved"),
+  });
+
+  const finalPageRows = await db
+    .select()
+    .from(schema.finalPages)
+    .where(eq(schema.finalPages.id, payload.finalPageId))
+    .limit(1);
+  const finalPage = finalPageRows[0];
+  if (!finalPage) {
+    return { success: false, error: "Final page not found" };
+  }
+
+  if (payload.approved === "true") {
+    await db
+      .update(schema.finalPages)
+      .set({ isApproved: false })
+      .where(eq(schema.finalPages.sceneId, finalPage.sceneId));
+  }
+
+  await db
+    .update(schema.finalPages)
+    .set({ isApproved: payload.approved === "true" })
+    .where(eq(schema.finalPages.id, payload.finalPageId));
+
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  return { success: true, data: { id: payload.finalPageId } };
+}
+
+export async function generateFinalPagesAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = storyIdSchema.parse({
+    storyId: formData.get("storyId"),
+  });
+
+  const storyRows = await db
+    .select()
+    .from(schema.stories)
+    .where(eq(schema.stories.id, payload.storyId))
+    .limit(1);
+  const story = storyRows[0];
+  if (!story) {
+    return { success: false, error: "Story not found" };
+  }
+
+  const scenes = await db
+    .select({
+      id: schema.storyScenes.id,
+      sceneNumber: schema.storyScenes.sceneNumber,
+    })
+    .from(schema.storyScenes)
+    .where(eq(schema.storyScenes.storyId, payload.storyId))
+    .orderBy(asc(schema.storyScenes.sceneNumber));
+  if (scenes.length === 0) {
+    return { success: false, error: "Generate scenes first" };
+  }
+
+  const panels = await db
+    .select({
+      sceneId: schema.storyboardPanels.sceneId,
+      imageUrl: schema.storyboardPanels.imageUrl,
+    })
+    .from(schema.storyboardPanels)
+    .where(inArray(schema.storyboardPanels.sceneId, scenes.map((scene) => scene.id)));
+  if (panels.length !== scenes.length || panels.some((panel) => !panel.imageUrl)) {
+    return {
+      success: false,
+      error: "Storyboard is incomplete. Generate all storyboard images first.",
+    };
+  }
+
+  const existingFinalPages = await db
+    .select({ sceneId: schema.finalPages.sceneId })
+    .from(schema.finalPages)
+    .where(inArray(schema.finalPages.sceneId, scenes.map((scene) => scene.id)));
+  const existingSceneIds = new Set(existingFinalPages.map((page) => page.sceneId));
+  const sceneIdsToGenerate = scenes
+    .filter((scene) => !existingSceneIds.has(scene.id))
+    .map((scene) => scene.id);
+
+  if (sceneIdsToGenerate.length === 0) {
+    await db
+      .update(schema.stories)
+      .set({ status: "pages_ready" })
+      .where(eq(schema.stories.id, payload.storyId));
+    revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+    revalidatePath(`/admin/stories/${payload.storyId}`);
+    return { success: true, data: { id: payload.storyId } };
+  }
+
+  await db
+    .update(schema.stories)
+    .set({ status: "pages_generating" })
+    .where(eq(schema.stories.id, payload.storyId));
+
+  for (const sceneId of sceneIdsToGenerate) {
+    const result = await generateSingleFinalPage({
+      storyId: payload.storyId,
+      sceneId,
+    });
+    if (!result.success) {
+      await db
+        .update(schema.stories)
+        .set({ status: "pages_failed" })
+        .where(eq(schema.stories.id, payload.storyId));
+      revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+      revalidatePath(`/admin/stories/${payload.storyId}`);
+      return result;
+    }
+  }
+
+  await db
+    .update(schema.stories)
+    .set({ status: "pages_ready" })
+    .where(eq(schema.stories.id, payload.storyId));
+
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
+  return { success: true, data: { id: payload.storyId } };
+}
