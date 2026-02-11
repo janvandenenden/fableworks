@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import {
   deleteCharacterAction,
   regenerateCharacterAction,
+  regenerateImagesFromProfileAction,
 } from "@/app/admin/characters/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { CharacterDetailAutoRefresh } from "@/components/admin/character-detail-auto-refresh";
 import { CharacterGallery } from "@/components/admin/character-gallery";
+import { CharacterProfileEditor } from "@/components/admin/character-profile-editor";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -43,6 +45,30 @@ export default async function CharacterDetailPage({ params }: Props) {
     .orderBy(desc(schema.characterImages.createdAt));
   const latestProfile = profile[0] ?? null;
   const isGenerating = item.status === "generating";
+  const profileForEdit = latestProfile
+    ? {
+        approxAge: latestProfile.approxAge,
+        hairColor: latestProfile.hairColor,
+        hairLength: latestProfile.hairLength,
+        hairTexture: latestProfile.hairTexture,
+        hairStyle: latestProfile.hairStyle,
+        faceShape: latestProfile.faceShape,
+        eyeColor: latestProfile.eyeColor,
+        eyeShape: latestProfile.eyeShape,
+        skinTone: latestProfile.skinTone,
+        clothing: latestProfile.clothing,
+        distinctiveFeatures: latestProfile.distinctiveFeatures,
+        colorPalette: latestProfile.colorPalette
+          ? JSON.parse(latestProfile.colorPalette).join(", ")
+          : "",
+        personalityTraits: latestProfile.personalityTraits
+          ? JSON.parse(latestProfile.personalityTraits).join(", ")
+          : "",
+        doNotChange: latestProfile.doNotChange
+          ? JSON.parse(latestProfile.doNotChange).join(", ")
+          : "",
+      }
+    : null;
 
   return (
     <div className="space-y-6">
@@ -64,7 +90,17 @@ export default async function CharacterDetailPage({ params }: Props) {
           }}
         >
           <Button type="submit" variant="secondary">
-            Regenerate
+            Regenerate (with vision)
+          </Button>
+        </form>
+        <form
+          action={async () => {
+            "use server";
+            await regenerateImagesFromProfileAction(id);
+          }}
+        >
+          <Button type="submit" variant="outline">
+            Regenerate images only
           </Button>
         </form>
         <form
@@ -167,6 +203,8 @@ export default async function CharacterDetailPage({ params }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <CharacterProfileEditor characterId={id} profile={profileForEdit} />
 
       <Card>
         <CardHeader>

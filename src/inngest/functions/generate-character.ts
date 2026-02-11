@@ -16,6 +16,7 @@ const characterCreatedSchema = z.object({
   id: z.string(),
   sourceImageUrl: z.string().url(),
   stylePreset: z.string().optional(),
+  useExistingProfile: z.boolean().optional(),
 });
 
 const stringish = z
@@ -80,29 +81,65 @@ export const generateCharacter = inngest.createFunction(
       "doNotChange (string[]), rawVisionDescription (string).",
     ].join(" ");
 
-    const visionResponse = await step.run("vision-profile", () =>
-      analyzeImage(payload.sourceImageUrl, visionPrompt, {
-        model: "gpt-4o",
-        maxTokens: 1024,
-      })
-    );
-
     let parsedProfile: z.infer<typeof visionProfileSchema>;
-    try {
-      const cleaned = visionResponse
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
-      parsedProfile = visionProfileSchema.parse(JSON.parse(cleaned));
-    } catch (error) {
-      await step.run("mark-prompt-failed", () =>
+    if (payload.useExistingProfile) {
+      const existing = await step.run("load-profile", () =>
         db
-          .update(schema.characters)
-          .set({ status: "draft" })
-          .where(eq(schema.characters.id, payload.id))
+          .select()
+          .from(schema.characterProfiles)
+          .where(eq(schema.characterProfiles.characterId, payload.id))
+          .limit(1)
       );
-      throw error;
+      if (existing[0]) {
+        const row = existing[0];
+        parsedProfile = visionProfileSchema.parse({
+          approxAge: row.approxAge,
+          hairColor: row.hairColor,
+          hairLength: row.hairLength,
+          hairTexture: row.hairTexture,
+          hairStyle: row.hairStyle,
+          faceShape: row.faceShape,
+          eyeColor: row.eyeColor,
+          eyeShape: row.eyeShape,
+          skinTone: row.skinTone,
+          clothing: row.clothing,
+          distinctiveFeatures: row.distinctiveFeatures,
+          colorPalette: row.colorPalette ? JSON.parse(row.colorPalette) : null,
+          personalityTraits: row.personalityTraits
+            ? JSON.parse(row.personalityTraits)
+            : null,
+          doNotChange: row.doNotChange ? JSON.parse(row.doNotChange) : null,
+          rawVisionDescription: row.rawVisionDescription,
+        });
+      } else {
+        payload = { ...payload, useExistingProfile: false };
+      }
+    }
+
+    if (!payload.useExistingProfile) {
+      const visionResponse = await step.run("vision-profile", () =>
+        analyzeImage(payload.sourceImageUrl, visionPrompt, {
+          model: "gpt-4o",
+          maxTokens: 1024,
+        })
+      );
+
+      try {
+        const cleaned = visionResponse
+          .replace(/^```json\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        parsedProfile = visionProfileSchema.parse(JSON.parse(cleaned));
+      } catch (error) {
+        await step.run("mark-prompt-failed", () =>
+          db
+            .update(schema.characters)
+            .set({ status: "draft" })
+            .where(eq(schema.characters.id, payload.id))
+        );
+        throw error;
+      }
     }
 
     const normalizedProfile = {
@@ -129,19 +166,21 @@ export const generateCharacter = inngest.createFunction(
       rawVisionDescription: parsedProfile.rawVisionDescription ?? null,
     };
 
-    await step.run("store-profile", () =>
-      db
-        .insert(schema.characterProfiles)
-        .values({
-          id: newId(),
-          characterId: payload.id,
-          ...normalizedProfile,
-        })
-        .onConflictDoUpdate({
-          target: schema.characterProfiles.characterId,
-          set: normalizedProfile,
-        })
-    );
+    if (!payload.useExistingProfile) {
+      await step.run("store-profile", () =>
+        db
+          .insert(schema.characterProfiles)
+          .values({
+            id: newId(),
+            characterId: payload.id,
+            ...normalizedProfile,
+          })
+          .onConflictDoUpdate({
+            target: schema.characterProfiles.characterId,
+            set: normalizedProfile,
+          })
+      );
+    }
 
     const stylePreset = ((): "watercolor" | "storybook" | "anime" | "flat" | "colored-pencil" => {
       const value = payload.stylePreset ?? "storybook";

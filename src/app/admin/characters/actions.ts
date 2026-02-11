@@ -104,6 +104,7 @@ export async function regenerateCharacterAction(
         id,
         sourceImageUrl: character.sourceImageUrl,
         stylePreset: character.stylePreset ?? "storybook",
+        useExistingProfile: false,
       },
     });
 
@@ -112,6 +113,146 @@ export async function regenerateCharacterAction(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to regenerate";
+    return { success: false, error: message };
+  }
+}
+
+export async function regenerateImagesFromProfileAction(
+  id: string
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const rows = await db
+      .select()
+      .from(schema.characters)
+      .where(eq(schema.characters.id, id))
+      .limit(1);
+
+    if (!rows[0]) {
+      return { success: false, error: "Character not found" };
+    }
+
+    const character = rows[0];
+    if (!character.sourceImageUrl) {
+      return { success: false, error: "Missing source image URL" };
+    }
+
+    await db
+      .update(schema.characters)
+      .set({ status: "generating" })
+      .where(eq(schema.characters.id, id));
+
+    await inngest.send({
+      name: "character/created",
+      data: {
+        id,
+        sourceImageUrl: character.sourceImageUrl,
+        stylePreset: character.stylePreset ?? "storybook",
+        useExistingProfile: true,
+      },
+    });
+
+    revalidatePath(`/admin/characters/${id}`);
+    return { success: true, data: { id } };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to regenerate";
+    return { success: false, error: message };
+  }
+}
+
+const profileUpdateSchema = z.object({
+  approxAge: z.string().optional().nullable(),
+  hairColor: z.string().optional().nullable(),
+  hairLength: z.string().optional().nullable(),
+  hairTexture: z.string().optional().nullable(),
+  hairStyle: z.string().optional().nullable(),
+  faceShape: z.string().optional().nullable(),
+  eyeColor: z.string().optional().nullable(),
+  eyeShape: z.string().optional().nullable(),
+  skinTone: z.string().optional().nullable(),
+  clothing: z.string().optional().nullable(),
+  distinctiveFeatures: z.string().optional().nullable(),
+  colorPalette: z.string().optional().nullable(),
+  personalityTraits: z.string().optional().nullable(),
+  doNotChange: z.string().optional().nullable(),
+});
+
+function splitList(value: string | null | undefined) {
+  if (!value) return null;
+  const parts = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return parts.length ? JSON.stringify(parts) : null;
+}
+
+export async function updateCharacterProfileAction(
+  id: string,
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const parsed = profileUpdateSchema.parse({
+      approxAge: formData.get("approxAge"),
+      hairColor: formData.get("hairColor"),
+      hairLength: formData.get("hairLength"),
+      hairTexture: formData.get("hairTexture"),
+      hairStyle: formData.get("hairStyle"),
+      faceShape: formData.get("faceShape"),
+      eyeColor: formData.get("eyeColor"),
+      eyeShape: formData.get("eyeShape"),
+      skinTone: formData.get("skinTone"),
+      clothing: formData.get("clothing"),
+      distinctiveFeatures: formData.get("distinctiveFeatures"),
+      colorPalette: formData.get("colorPalette"),
+      personalityTraits: formData.get("personalityTraits"),
+      doNotChange: formData.get("doNotChange"),
+    });
+
+    await db
+      .insert(schema.characterProfiles)
+      .values({
+        id: crypto.randomUUID(),
+        characterId: id,
+        approxAge: parsed.approxAge ?? null,
+        hairColor: parsed.hairColor ?? null,
+        hairLength: parsed.hairLength ?? null,
+        hairTexture: parsed.hairTexture ?? null,
+        hairStyle: parsed.hairStyle ?? null,
+        faceShape: parsed.faceShape ?? null,
+        eyeColor: parsed.eyeColor ?? null,
+        eyeShape: parsed.eyeShape ?? null,
+        skinTone: parsed.skinTone ?? null,
+        clothing: parsed.clothing ?? null,
+        distinctiveFeatures: parsed.distinctiveFeatures ?? null,
+        colorPalette: splitList(parsed.colorPalette),
+        personalityTraits: splitList(parsed.personalityTraits),
+        doNotChange: splitList(parsed.doNotChange),
+      })
+      .onConflictDoUpdate({
+        target: schema.characterProfiles.characterId,
+        set: {
+          approxAge: parsed.approxAge ?? null,
+          hairColor: parsed.hairColor ?? null,
+          hairLength: parsed.hairLength ?? null,
+          hairTexture: parsed.hairTexture ?? null,
+          hairStyle: parsed.hairStyle ?? null,
+          faceShape: parsed.faceShape ?? null,
+          eyeColor: parsed.eyeColor ?? null,
+          eyeShape: parsed.eyeShape ?? null,
+          skinTone: parsed.skinTone ?? null,
+          clothing: parsed.clothing ?? null,
+          distinctiveFeatures: parsed.distinctiveFeatures ?? null,
+          colorPalette: splitList(parsed.colorPalette),
+          personalityTraits: splitList(parsed.personalityTraits),
+          doNotChange: splitList(parsed.doNotChange),
+        },
+      });
+
+    revalidatePath(`/admin/characters/${id}`);
+    return { success: true, data: { id } };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to update profile";
     return { success: false, error: message };
   }
 }
