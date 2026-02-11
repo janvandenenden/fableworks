@@ -135,6 +135,24 @@
 - Ran targeted suite:
   - `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/lib/prompts/__tests__/story.test.ts src/components/admin/__tests__/storyboard-panel.test.tsx` (pass)
 
+## 2026-02-11 -- Phase 6 implementation (slice 6: final pages actions tests)
+
+### Actions
+- Added dedicated actions test suite for Phase 6 final pages:
+  - `src/app/admin/stories/[id]/pages/__tests__/actions.test.ts`
+- Covered:
+  - single-page generation with character override,
+  - prompt draft save with character context,
+  - run-reuse type validation failure path,
+  - approve/unapprove flow for versions,
+  - bulk generation story status transitions (`pages_generating` -> `pages_ready`).
+- Asserted dual-reference payload behavior (`image` includes storyboard + character references).
+
+### Tests
+- Ran:
+  - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+  - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/lib/prompts/__tests__/final-page.test.ts` (pass)
+
 ## 2026-02-11 -- Phase 6 planning kickoff
 
 ### Actions
