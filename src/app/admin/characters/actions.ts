@@ -78,6 +78,7 @@ export async function regenerateCharacterFromModeAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const stylePreset = String(formData.get("stylePreset") ?? "");
   const mode = String(formData.get("mode") ?? "");
+  const promptOverride = String(formData.get("promptOverride") ?? "").trim();
 
   const rows = await db
     .select()
@@ -109,6 +110,7 @@ export async function regenerateCharacterFromModeAction(formData: FormData) {
           ? stylePreset
           : character.stylePreset ?? "storybook",
       useExistingProfile: mode === "profile",
+      ...(promptOverride ? { promptOverride } : {}),
     },
   });
 

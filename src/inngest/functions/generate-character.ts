@@ -17,6 +17,7 @@ const characterCreatedSchema = z.object({
   sourceImageUrl: z.string().url(),
   stylePreset: z.string().optional(),
   useExistingProfile: z.boolean().optional(),
+  promptOverride: z.string().optional(),
 });
 
 const stringish = z
@@ -203,7 +204,7 @@ export async function generateCharacterHandler({
       return "storybook";
     })();
 
-    const prompt = buildCharacterPrompt(
+    const generatedPrompt = buildCharacterPrompt(
       {
         approxAge: normalizedProfile.approxAge,
         hairColor: normalizedProfile.hairColor,
@@ -222,6 +223,7 @@ export async function generateCharacterHandler({
       },
       stylePreset
     );
+    const prompt = payload.promptOverride?.trim() || generatedPrompt;
     const promptId = newId();
 
     await step.run("record-prompt", () =>

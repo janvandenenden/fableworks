@@ -226,8 +226,8 @@ npm run test:e2e           # Run Playwright
 ## Phase Tracking
 
 - [x] Phase 1: Project Setup
-- [ ] Phase 2: Database + Character Generation
-- [ ] Phase 3: Story Generation
+- [x] Phase 2: Database + Character Generation
+- [ ] Phase 3: Story Generation (current)
 - [ ] Phase 4: Props Bible Creation
 - [ ] Phase 5: Storyboard Generation
 - [ ] Phase 6: Final Page Generation

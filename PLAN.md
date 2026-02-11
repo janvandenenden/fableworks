@@ -5,6 +5,7 @@
 Build a platform where parents create personalized children's books — a child becomes the protagonist of an AI-illustrated story, delivered as a PDF or printed book. The system has two surfaces: a user-facing book creation flow and an admin tool for story/asset management. This plan covers all 7 phases from project setup through purchase and delivery.
 
 **Key technology choices:**
+
 - **Next.js 15** (App Router) + **shadcn/ui** + **Tailwind CSS**
 - **Drizzle ORM** + **PostgreSQL** (SQLite for local dev)
 - **Cloudflare R2** for object storage
@@ -18,6 +19,7 @@ Build a platform where parents create personalized children's books — a child 
 - **Vitest** for unit/component tests, **Playwright** for E2E tests
 
 **Static assets:**
+
 - `public/outline.png` — Character outline template used as structural reference in storyboard generation
 
 ---
@@ -313,6 +315,7 @@ personalized-books-assets/
 ### Steps
 
 1. **Initialize project**
+
    ```
    npx create-next-app@latest personalized-books --typescript --tailwind --eslint --app --src-dir
    ```
@@ -329,6 +332,7 @@ personalized-books-assets/
    - `@playwright/test` — E2E testing
 
 3. **Environment variables** (`.env.local`)
+
    ```
    OPENAI_API_KEY=
    REPLICATE_API_TOKEN=
@@ -377,12 +381,14 @@ personalized-books-assets/
    - `package.json` scripts: `test`, `test:watch`, `test:coverage`, `test:e2e`
 
 ### Phase 1 Tests
+
 - `src/lib/__tests__/openai.test.ts` — Client instantiation, error handling
 - `src/lib/__tests__/replicate.test.ts` — Client instantiation, prediction helper
 - `src/lib/__tests__/r2.test.ts` — Upload/download/presigned URL helpers (mocked S3)
 - `e2e/admin-playground.spec.ts` — Playground page loads, form submits, result displays
 
 ### Files Created
+
 - `src/app/layout.tsx`, `src/app/globals.css`
 - `src/app/admin/layout.tsx`, `src/app/admin/page.tsx`
 - `src/app/admin/playground/page.tsx`
@@ -422,11 +428,13 @@ personalized-books-assets/
 **Admin UI:** `src/app/admin/characters/` pages
 
 **Flow:**
+
 1. User uploads child's photo → stored in R2 (`uploads/{user_id}/{character_id}/original`)
 2. Selects name, gender, style preset
 3. Clicks "Generate" → triggers Inngest function `generate-character`
 
 **Inngest function: `generate-character`** (multi-step)
+
 - **Step 1:** Call OpenAI Vision with the uploaded image → extract structured character profile (age, hair, face, skin, clothing, distinctive features)
 - **Step 2:** Store character profile in `character_profiles` table
 - **Step 3:** Build image generation prompt from profile + style preset (prompts in `src/lib/prompts/character.ts`)
@@ -435,17 +443,20 @@ personalized-books-assets/
 - **Step 6:** Store in `character_images` table, update character status to 'ready'
 
 **Style presets** (defined in `src/lib/prompts/character.ts`):
+
 - Watercolor, Storybook Classic, Anime/Manga, Flat Illustration, Colored Pencil
 - Each preset = a set of style tokens appended to the image generation prompt
 
 **Re-roll:** Clicking "Re-roll" triggers the same Inngest function again with the same inputs but creates a new `character_images` row. User can pick their favorite.
 
 **Admin UI components:**
+
 - `src/components/admin/character-form.tsx` — Upload + name/gender/style form
 - `src/components/admin/character-gallery.tsx` — Grid of generated variants
 - `src/components/admin/character-profile-view.tsx` — Shows structured profile data
 
 ### Phase 2 Tests
+
 - `src/db/__tests__/schema.test.ts` — Validate schema types, default values, relations
 - `src/lib/prompts/__tests__/character.test.ts` — Prompt builder produces correct output for each style preset, includes all profile fields
 - `src/inngest/functions/__tests__/generate-character.test.ts` — Multi-step function with mocked OpenAI/Replicate: vision extraction, profile storage, image gen trigger
@@ -454,6 +465,7 @@ personalized-books-assets/
 - `e2e/character-creation.spec.ts` — Upload photo, fill form, submit, see generated character
 
 ### Files Created/Modified
+
 - `src/db/schema.ts`, `src/db/index.ts`, `drizzle.config.ts`
 - `src/inngest/client.ts`, `src/inngest/functions/generate-character.ts`, `src/inngest/functions/persist-replicate-output.ts`
 - `src/app/api/inngest/route.ts`
@@ -476,11 +488,13 @@ personalized-books-assets/
 **Admin UI:** `src/app/admin/stories/`
 
 **Flow:**
-1. Admin selects a character, enters age range + theme (dropdown or custom text)
+
+1. Admin selects an age range + theme (dropdown or custom text)
 2. Clicks "Generate Story" → triggers Inngest function `generate-story`
 
 **Inngest function: `generate-story`** (multi-step)
-- **Step 1:** Build story prompt with character name, gender, age, theme, target age range. Prompt emphasizes: emotional arc, implicit lesson, avoids moralistic tone, feels "authored" not "generated". (Prompts in `src/lib/prompts/story.ts`)
+
+- **Step 1:** Build story prompt with name placeholder {{name}}, age, theme, target age range. Prompt emphasizes: emotional arc, implicit lesson, avoids moralistic tone, feels "authored" not "generated". (Prompts in `src/lib/prompts/story.ts`)
 - **Step 2:** Call OpenAI (GPT-4o) → get structured JSON response:
   ```json
   {
@@ -503,12 +517,14 @@ personalized-books-assets/
 **Scene editing:** After generation, each scene's text and description are individually editable. Single scenes can be regenerated via a "Regenerate Scene" button which calls OpenAI with the surrounding scene context.
 
 **Admin UI components:**
+
 - `src/components/admin/story-form.tsx` — Age range + theme selection
 - `src/components/admin/story-editor.tsx` — Full story view with editable scenes
 - `src/components/admin/prompt-editor.tsx` — Reusable prompt editing side panel (used across phases)
 - `src/components/admin/scene-card.tsx` — Individual scene display with edit/regenerate actions
 
 ### Phase 3 Tests
+
 - `src/lib/prompts/__tests__/story.test.ts` — Story prompt builder: correct character interpolation, age-appropriate language constraints, scene structure validation
 - `src/inngest/functions/__tests__/generate-story.test.ts` — Mocked OpenAI returns structured JSON, scenes stored correctly, status updated
 - `src/components/admin/__tests__/scene-card.test.tsx` — Renders scene text, edit mode toggle, save calls action
@@ -517,6 +533,7 @@ personalized-books-assets/
 - `e2e/story-generation.spec.ts` — Select character, choose theme, generate story, edit a scene, regenerate
 
 ### Files Created
+
 - `src/app/admin/stories/page.tsx`, `new/page.tsx`, `[id]/page.tsx`
 - `src/app/admin/stories/actions.ts`
 - `src/inngest/functions/generate-story.ts`
@@ -537,16 +554,19 @@ personalized-books-assets/
 **Admin UI:** `src/app/admin/stories/[id]/props/page.tsx`
 
 **Flow:**
+
 1. After story scenes are ready, admin clicks "Generate Props Bible"
 2. Inngest function `generate-props` analyzes all scenes
 
 **Inngest function: `generate-props`** (multi-step)
+
 - **Step 1:** Send all scene descriptions to OpenAI → extract recurring objects, environments, elements
 - **Step 2:** For each extracted prop, generate a detailed textual definition (appearance, color, size, material, distinguishing features)
 - **Step 3:** Store in `props_bible_entries` table
 - **Step 4 (optional):** For key props, generate reference images via Replicate → store in `prop_images`
 
 **Admin UI components:**
+
 - `src/components/admin/props-bible.tsx` — List of all props with edit/delete
 - `src/components/admin/prop-card.tsx` — Single prop with description + reference images
 - `src/components/admin/prop-form.tsx` — Add/edit prop manually
@@ -554,12 +574,14 @@ personalized-books-assets/
 **Props are editable:** Admin can add, remove, or modify props and their descriptions. Props are referenced by ID in storyboard prompts.
 
 ### Phase 4 Tests
+
 - `src/lib/prompts/__tests__/props.test.ts` — Props extraction prompt includes all scene descriptions, output schema validation
 - `src/inngest/functions/__tests__/generate-props.test.ts` — Extracts props from scene descriptions, stores entries, optional image generation
 - `src/components/admin/__tests__/prop-form.test.tsx` — Add/edit prop form validation, submit calls action
 - `src/components/admin/__tests__/props-bible.test.tsx` — Renders prop list, delete removes entry
 
 ### Files Created
+
 - `src/app/admin/stories/[id]/props/page.tsx`
 - `src/app/admin/stories/[id]/props/actions.ts`
 - `src/inngest/functions/generate-props.ts`
@@ -578,11 +600,13 @@ personalized-books-assets/
 **Admin UI:** `src/app/admin/stories/[id]/storyboard/page.tsx`
 
 **Flow:**
+
 1. After props bible is ready, admin clicks "Generate Storyboard"
 2. First, OpenAI generates structured composition data per scene
 3. Then, Replicate (NanoBanana Pro) generates B&W sketch per scene
 
 **Inngest function: `generate-storyboard`** (multi-step)
+
 - **Step 1:** For each scene, call OpenAI to generate structured composition:
   - Background, foreground, environment descriptions
   - Character pose/action (explicit)
@@ -600,17 +624,20 @@ personalized-books-assets/
 **Per-scene regeneration:** Each panel can be regenerated independently. Admin can edit the composition fields and prompt before regenerating.
 
 **Admin UI components:**
+
 - `src/components/admin/storyboard-view.tsx` — Grid of all panels
 - `src/components/admin/storyboard-panel.tsx` — Single panel with image + composition editor
 - `src/components/admin/composition-form.tsx` — Edit background/foreground/pose/composition
 
 ### Phase 5 Tests
+
 - `src/lib/prompts/__tests__/storyboard.test.ts` — Storyboard prompt includes scene + props references, composition fields, sketch style tokens
 - `src/inngest/functions/__tests__/generate-storyboard.test.ts` — Composition generation per scene, image gen calls, R2 persistence
 - `src/components/admin/__tests__/composition-form.test.tsx` — Form fields render, validation, save updates panel
 - `src/components/admin/__tests__/storyboard-panel.test.tsx` — Displays image + composition, regenerate button triggers action
 
 ### Files Created
+
 - `src/app/admin/stories/[id]/storyboard/page.tsx`
 - `src/app/admin/stories/[id]/storyboard/actions.ts`
 - `src/inngest/functions/generate-storyboard.ts`
@@ -629,10 +656,12 @@ personalized-books-assets/
 **Admin UI:** `src/app/admin/stories/[id]/pages/page.tsx`
 
 **Flow:**
+
 1. After storyboard is approved, admin clicks "Generate Final Pages"
 2. Each page combines: storyboard panel + character image + props bible + style definition
 
 **Inngest function: `generate-final-pages`** (multi-step)
+
 - **Step 1:** For each scene, build the final prompt combining:
   - Storyboard panel (composition reference)
   - Final character image (selected variant from Phase 2)
@@ -649,15 +678,18 @@ personalized-books-assets/
 **Re-roll individual pages:** Each page can be regenerated independently without affecting others. Creates a new version (`version` field increments).
 
 **Admin UI components:**
+
 - `src/components/admin/final-pages-view.tsx` — Side-by-side storyboard vs final
 - `src/components/admin/final-page-card.tsx` — Single page with approve/re-roll actions
 
 ### Phase 6 Tests
+
 - `src/lib/prompts/__tests__/final-page.test.ts` — Final prompt combines storyboard + character + props + style correctly, invariants included
 - `src/inngest/functions/__tests__/generate-final-pages.test.ts` — Per-page image gen, version increment on re-roll, status update
 - `src/components/admin/__tests__/final-page-card.test.tsx` — Approve/re-roll buttons, version display, side-by-side comparison
 
 ### Files Created
+
 - `src/app/admin/stories/[id]/pages/page.tsx`
 - `src/app/admin/stories/[id]/pages/actions.ts`
 - `src/inngest/functions/generate-final-pages.ts`
@@ -674,11 +706,13 @@ personalized-books-assets/
 ### 7.1 PDF Generation
 
 **Inngest function: `generate-pdf`**
+
 - Uses `@react-pdf/renderer` to compose final pages + text into a children's book layout
 - Stores PDF in R2
 - Updates `books` table with `pdf_url`
 
 **Components:**
+
 - `src/lib/pdf/book-template.tsx` — React-PDF template defining book layout (cover, spreads, back)
 - `src/lib/pdf/spread-layout.tsx` — Single spread layout component
 
@@ -691,6 +725,7 @@ personalized-books-assets/
 ### 7.3 Stripe Checkout
 
 **Flow:**
+
 1. User completes character + story selection
 2. On checkout page, create Stripe Checkout Session via Server Action
 3. Redirect to Stripe-hosted checkout
@@ -699,6 +734,7 @@ personalized-books-assets/
 6. Triggers Inngest function to start final generation pipeline
 
 **Components:**
+
 - `src/app/(app)/create/checkout/page.tsx` — Order summary + "Pay" button
 - `src/app/(app)/create/checkout/actions.ts` — Server Action to create Stripe session
 - `src/app/api/webhooks/stripe/route.ts` — Stripe webhook handler
@@ -707,11 +743,13 @@ personalized-books-assets/
 ### 7.4 Lulu Print-on-Demand
 
 **Inngest function:** Triggered after PDF is ready + user requests print
+
 - Creates a print job via Lulu API with the PDF URL
 - Stores `lulu_print_job_id` in `books` table
 - Polls Lulu API for status updates (or receives webhook)
 
 **Components:**
+
 - `src/lib/lulu.ts` — Lulu API client (create print job, get status, get shipping rates)
 - Shipping address form on the user-facing order page
 
@@ -732,6 +770,7 @@ Step 5: View Book         → /books/[id]
 **Progress tracking:** The `/create/generating` page polls for generation status (or uses server-sent events). Shows progress bar with step labels: "Generating storyboard... Creating illustrations... Building your book..."
 
 **Components:**
+
 - `src/components/create/character-step.tsx` — Reuses character form from admin
 - `src/components/create/story-step.tsx` — Story/theme selector (simplified from admin)
 - `src/components/create/checkout-step.tsx` — Order summary
@@ -739,6 +778,7 @@ Step 5: View Book         → /books/[id]
 - `src/components/create/step-indicator.tsx` — Step progress bar
 
 ### Phase 7 Tests
+
 - `src/inngest/functions/__tests__/generate-pdf.test.ts` — PDF generation with mocked React-PDF, R2 upload, book row created
 - `src/lib/__tests__/stripe.test.ts` — Checkout session creation, webhook signature verification, event handling
 - `src/lib/__tests__/lulu.test.ts` — Print job creation, status polling, error handling
@@ -750,6 +790,7 @@ Step 5: View Book         → /books/[id]
 - `e2e/checkout.spec.ts` — Stripe test mode checkout, webhook simulation, order created
 
 ### Files Created
+
 - `src/lib/pdf/book-template.tsx`, `spread-layout.tsx`
 - `src/inngest/functions/generate-pdf.ts`
 - `src/app/(app)/books/page.tsx`, `[id]/page.tsx`
@@ -779,15 +820,15 @@ Step 5: View Book         → /books/[id]
 
 ## Background Job Summary (Inngest Functions)
 
-| Function | Trigger | Steps | Phase |
-|---|---|---|---|
-| `generate-character` | Character created | Vision → Profile → Image Gen → Persist | 2 |
-| `persist-replicate-output` | Replicate webhook | Copy temp URL → R2 | 2 |
-| `generate-story` | Story requested | Build prompt → OpenAI → Store scenes | 3 |
-| `generate-props` | Props requested | Analyze scenes → Extract props → Store | 4 |
-| `generate-storyboard` | Storyboard requested | Composition → Image gen per panel | 5 |
-| `generate-final-pages` | Pages requested | Build prompts → Image gen per page | 6 |
-| `generate-pdf` | All pages approved | Compose PDF → Store in R2 | 7 |
+| Function                   | Trigger              | Steps                                  | Phase |
+| -------------------------- | -------------------- | -------------------------------------- | ----- |
+| `generate-character`       | Character created    | Vision → Profile → Image Gen → Persist | 2     |
+| `persist-replicate-output` | Replicate webhook    | Copy temp URL → R2                     | 2     |
+| `generate-story`           | Story requested      | Build prompt → OpenAI → Store scenes   | 3     |
+| `generate-props`           | Props requested      | Analyze scenes → Extract props → Store | 4     |
+| `generate-storyboard`      | Storyboard requested | Composition → Image gen per panel      | 5     |
+| `generate-final-pages`     | Pages requested      | Build prompts → Image gen per page     | 6     |
+| `generate-pdf`             | All pages approved   | Compose PDF → Store in R2              | 7     |
 
 ---
 
@@ -800,33 +841,34 @@ Step 5: View Book         → /books/[id]
 
 ### Test Infrastructure (set up in Phase 1)
 
-| File | Purpose |
-|---|---|
-| `vitest.config.ts` | Vitest config: React plugin, jsdom, path aliases, coverage thresholds |
-| `playwright.config.ts` | Playwright config: base URL, browser settings, test directory |
-| `src/test/setup.ts` | Global setup: Testing Library matchers, env stubs |
-| `src/test/mocks/openai.ts` | Mock OpenAI client (canned text + vision responses) |
-| `src/test/mocks/replicate.ts` | Mock Replicate client (canned image URLs) |
-| `src/test/mocks/r2.ts` | Mock R2 helpers (in-memory buffer storage) |
-| `src/test/mocks/inngest.ts` | Mock Inngest client (captures sent events, step spies) |
-| `src/test/fixtures/*.ts` | Factory functions for test data (characters, stories, orders) |
-| `.env.test` | Test-specific env overrides (dummy API keys, test DB URL) |
+| File                          | Purpose                                                               |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `vitest.config.ts`            | Vitest config: React plugin, jsdom, path aliases, coverage thresholds |
+| `playwright.config.ts`        | Playwright config: base URL, browser settings, test directory         |
+| `src/test/setup.ts`           | Global setup: Testing Library matchers, env stubs                     |
+| `src/test/mocks/openai.ts`    | Mock OpenAI client (canned text + vision responses)                   |
+| `src/test/mocks/replicate.ts` | Mock Replicate client (canned image URLs)                             |
+| `src/test/mocks/r2.ts`        | Mock R2 helpers (in-memory buffer storage)                            |
+| `src/test/mocks/inngest.ts`   | Mock Inngest client (captures sent events, step spies)                |
+| `src/test/fixtures/*.ts`      | Factory functions for test data (characters, stories, orders)         |
+| `.env.test`                   | Test-specific env overrides (dummy API keys, test DB URL)             |
 
 ### What Gets Tested Per Phase
 
-| Phase | Unit Tests (Vitest) | Component Tests (Vitest) | E2E Tests (Playwright) |
-|---|---|---|---|
-| 1 | API client wrappers (OpenAI, Replicate, R2) | -- | Playground page loads + submits |
-| 2 | Schema validation, character prompt builder | Character form, gallery, profile view | Upload photo, generate character |
-| 3 | Story prompt builder, scene structure | Scene card, prompt editor | Generate story, edit scene |
-| 4 | Props extraction prompt | Prop form, props bible list | -- |
-| 5 | Storyboard prompt builder | Composition form, storyboard panel | -- |
-| 6 | Final page prompt builder | Final page card | -- |
-| 7 | Stripe helpers, Lulu client, Zustand store | Step indicator, progress step | Full creation flow, checkout |
+| Phase | Unit Tests (Vitest)                         | Component Tests (Vitest)              | E2E Tests (Playwright)           |
+| ----- | ------------------------------------------- | ------------------------------------- | -------------------------------- |
+| 1     | API client wrappers (OpenAI, Replicate, R2) | --                                    | Playground page loads + submits  |
+| 2     | Schema validation, character prompt builder | Character form, gallery, profile view | Upload photo, generate character |
+| 3     | Story prompt builder, scene structure       | Scene card, prompt editor             | Generate story, edit scene       |
+| 4     | Props extraction prompt                     | Prop form, props bible list           | --                               |
+| 5     | Storyboard prompt builder                   | Composition form, storyboard panel    | --                               |
+| 6     | Final page prompt builder                   | Final page card                       | --                               |
+| 7     | Stripe helpers, Lulu client, Zustand store  | Step indicator, progress step         | Full creation flow, checkout     |
 
 ### Bug Fixing Protocol
 
 When a bug is found:
+
 1. Write a failing test that reproduces the bug
 2. Confirm the test fails for the expected reason
 3. Fix the bug
@@ -854,6 +896,7 @@ Automated tests cover logic and integration. Manual verification is for **visual
 - **Phase 7:** PDF layout is clean. Stripe test payment completes. Lulu sandbox accepts the print job.
 
 ### Running Tests
+
 ```bash
 npm run test               # Run Vitest (unit + component tests)
 npm run test:watch         # Vitest in watch mode
@@ -863,6 +906,7 @@ npx playwright test --ui   # Playwright with interactive UI
 ```
 
 ### Running the Project
+
 ```bash
 cd personalized-books
 npm run dev                # Start Next.js dev server

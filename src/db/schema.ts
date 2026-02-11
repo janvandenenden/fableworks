@@ -96,6 +96,7 @@ export const propsBibleEntries = sqliteTable("props_bible_entries", {
     .references(() => stories.id),
   title: text("title").notNull(),
   category: text("category"),
+  appearsInScenes: text("appears_in_scenes", { mode: "json" }),
   tags: text("tags", { mode: "json" }),
   description: text("description").notNull(),
   createdAt: timestamp("created_at"),
