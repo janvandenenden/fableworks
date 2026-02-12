@@ -114,18 +114,20 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
   }
 
   const priceConfig = getCheckoutPriceConfig();
-  const configuredAmount = Number(process.env.BOOK_PRICE_CENTS ?? 2999);
-  const fallbackAmountCents = 2999;
-  const amountCents =
-    priceConfig.mode === "inline"
-      ? priceConfig.amountCents
-      : Number.isFinite(configuredAmount) && configuredAmount > 0
-        ? Math.round(configuredAmount)
-        : fallbackAmountCents;
-  const currency =
-    priceConfig.mode === "inline"
-      ? priceConfig.currency
-      : (process.env.BOOK_PRICE_CURRENCY?.trim().toLowerCase() || "usd");
+  let amountCents: number;
+  let currency: string;
+
+  if (priceConfig.mode === "inline") {
+    amountCents = priceConfig.amountCents;
+    currency = priceConfig.currency;
+  } else {
+    const stripePrice = await stripe.prices.retrieve(priceConfig.priceId);
+    if (typeof stripePrice.unit_amount !== "number" || !Number.isFinite(stripePrice.unit_amount)) {
+      throw new Error("Stripe price is missing unit_amount");
+    }
+    amountCents = Math.round(stripePrice.unit_amount);
+    currency = stripePrice.currency.toLowerCase();
+  }
 
   if (normalizedUserId) {
     await ensureUserExists(normalizedUserId);

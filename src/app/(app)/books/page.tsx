@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { toCustomerFulfillmentStatus, toCustomerPaymentStatus } from "@/lib/order-status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DeleteOrderButton } from "@/components/app/delete-order-button";
 
 async function getCurrentUserIdOrFallback(): Promise<string> {
   try {
@@ -17,8 +18,14 @@ async function getCurrentUserIdOrFallback(): Promise<string> {
 }
 
 function formatMoney(amountCents: number | null, currency: string | null): string {
-  const amount = amountCents ?? 0;
-  const safeCurrency = (currency ?? "usd").toUpperCase();
+  if (typeof amountCents !== "number" || !Number.isFinite(amountCents)) {
+    return "Pending price";
+  }
+  if (typeof currency !== "string" || currency.trim().length === 0) {
+    return "Pending currency";
+  }
+  const amount = amountCents;
+  const safeCurrency = currency.toUpperCase();
   return `${(amount / 100).toFixed(2)} ${safeCurrency}`;
 }
 
@@ -102,6 +109,10 @@ export default async function CustomerBooksPage() {
               (order.paymentStatus === "failed" || order.paymentStatus === "expired");
             const canResumeCheckout =
               Boolean(order.storyId) && order.paymentStatus === "pending";
+            const canDeleteOrder =
+              order.paymentStatus === "pending" ||
+              order.paymentStatus === "failed" ||
+              order.paymentStatus === "expired";
 
             return (
               <Card key={order.id}>
@@ -150,6 +161,7 @@ export default async function CustomerBooksPage() {
                         </a>
                       </Button>
                     ) : null}
+                    {canDeleteOrder ? <DeleteOrderButton orderId={order.id} /> : null}
                   </div>
                 </CardContent>
               </Card>

@@ -112,6 +112,21 @@
   - `npm run lint` (pass)
   - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts src/lib/__tests__/notifications.test.ts` (pass)
 
+### Customer cleanup follow-up
+- Added customer-side delete for unpaid test orders:
+  - `src/app/(app)/books/actions.ts`
+  - new `deleteUnpaidOrderAction(orderId)`:
+    - ownership check,
+    - allows only `pending` / `failed` / `expired`,
+    - cleans linked books/generated assets/order pipeline artifacts,
+    - deletes linked credit ledger rows + order.
+- Added delete UI with confirm dialog on `/books`:
+  - `src/components/app/delete-order-button.tsx`
+  - `src/app/(app)/books/page.tsx`
+  - shows `Delete` action for unpaid statuses only.
+- Validation:
+  - `npm run lint` (pass)
+
 ## 2026-02-12 -- Phase 8 implementation (slice 6: paid-order orchestration trigger + timeline visibility) [in progress]
 
 ### Actions

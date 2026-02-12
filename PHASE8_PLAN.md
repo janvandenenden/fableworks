@@ -138,3 +138,10 @@
 - [ ] Confirm paid order appears in admin fulfillment queue cleanly.
 - [ ] Validate customer status copy is clear and non-technical.
 - [ ] Run one end-to-end demo from fresh account to fulfilled-ready state.
+
+## Refactor backlog (post-Phase 8)
+- [ ] Remove legacy `usd` schema default on `orders.currency` and rely on Stripe as source-of-truth.
+- [ ] Centralize checkout pricing config to avoid duplicate fallbacks (`price_id` vs inline mode).
+- [ ] Normalize money formatting in one shared helper (customer + admin surfaces).
+- [ ] Add a lightweight cleanup/archive strategy for old unpaid test orders.
+- [ ] Consolidate status mapping + copy strings into a single typed module with test coverage.

@@ -94,6 +94,8 @@ describe("stripe webhook route", () => {
         object: {
           id: sessionId,
           payment_intent: "pi_test_123",
+          amount_total: 4000,
+          currency: "eur",
           metadata: { orderId: "order-1" },
           customer_details: {
             email: "buyer@example.com",
@@ -141,6 +143,8 @@ describe("stripe webhook route", () => {
         paymentStatus: "paid",
         stripeCheckoutSessionId: sessionId,
         stripePaymentIntentId: "pi_test_123",
+        amountCents: 4000,
+        currency: "eur",
         shippingName: "Buyer Name",
         shippingEmail: "buyer@example.com",
         shippingPhone: "+123456789",

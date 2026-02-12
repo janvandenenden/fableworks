@@ -132,6 +132,14 @@ export async function POST(request: Request) {
             stripeCheckoutSessionId: session.id,
             stripePaymentIntentId:
               typeof session.payment_intent === "string" ? session.payment_intent : null,
+            amountCents:
+              typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
+                ? session.amount_total
+                : order.amountCents,
+            currency:
+              typeof session.currency === "string" && session.currency.trim().length > 0
+                ? session.currency.toLowerCase()
+                : order.currency,
             shippingName: shipping.shippingName,
             shippingEmail: shipping.shippingEmail,
             shippingPhone: shipping.shippingPhone,
