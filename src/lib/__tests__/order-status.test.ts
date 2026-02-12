@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   toCustomerFulfillmentStatus,
+  toCustomerPipelineStatus,
   toCustomerPaymentStatus,
   toToneClasses,
 } from "@/lib/order-status";
@@ -31,5 +32,21 @@ describe("order-status", () => {
   it("returns CSS classes for tone", () => {
     expect(toToneClasses("warning")).toContain("amber");
     expect(toToneClasses("danger")).toContain("destructive");
+  });
+
+  it("maps pipeline run states to customer-friendly labels", () => {
+    const complete = toCustomerPipelineStatus({
+      status: "success",
+      structuredFields: JSON.stringify({ stage: "complete" }),
+      errorMessage: null,
+    });
+    expect(complete.label).toBe("Processing complete");
+
+    const running = toCustomerPipelineStatus({
+      status: "running",
+      structuredFields: null,
+      errorMessage: null,
+    });
+    expect(running.label).toBe("Processing");
   });
 });

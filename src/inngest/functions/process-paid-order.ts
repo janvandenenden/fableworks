@@ -4,6 +4,10 @@ import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
 import { generatePrintFilesForStory } from "@/lib/book-generation";
 import { sendOrderMilestoneEmail } from "@/lib/notifications";
+import {
+  generateFinalCoverAction,
+  generateFinalPagesAction,
+} from "@/app/admin/stories/[id]/pages/actions";
 
 const orderPaidSchema = z.object({
   orderId: z.string().uuid(),
@@ -92,6 +96,60 @@ export const processPaidOrder = inngest.createFunction(
       });
 
       try {
+        const pagesForm = new FormData();
+        pagesForm.set("storyId", order.storyId);
+        const pagesResult = await generateFinalPagesAction(pagesForm);
+        if (!pagesResult.success) {
+          await db
+            .update(schema.promptArtifacts)
+            .set({
+              status: "success",
+              structuredFields: JSON.stringify({
+                stage: "waiting_for_assets",
+                orderId: order.id,
+                storyId: order.storyId,
+                bookId: book.id,
+                note: pagesResult.error,
+              }),
+            })
+            .where(eq(schema.promptArtifacts.id, runId));
+
+          return {
+            ok: true,
+            stage: "waiting_for_assets",
+            orderId: order.id,
+            bookId: book.id,
+            note: pagesResult.error,
+          };
+        }
+
+        const coverForm = new FormData();
+        coverForm.set("storyId", order.storyId);
+        const coverResult = await generateFinalCoverAction(coverForm);
+        if (!coverResult.success) {
+          await db
+            .update(schema.promptArtifacts)
+            .set({
+              status: "success",
+              structuredFields: JSON.stringify({
+                stage: "waiting_for_assets",
+                orderId: order.id,
+                storyId: order.storyId,
+                bookId: book.id,
+                note: coverResult.error,
+              }),
+            })
+            .where(eq(schema.promptArtifacts.id, runId));
+
+          return {
+            ok: true,
+            stage: "waiting_for_assets",
+            orderId: order.id,
+            bookId: book.id,
+            note: coverResult.error,
+          };
+        }
+
         const generated = await generatePrintFilesForStory(order.storyId);
         await db
           .update(schema.promptArtifacts)

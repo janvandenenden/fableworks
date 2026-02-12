@@ -8,6 +8,7 @@ const insertValues = vi.fn(async () => undefined);
 const selectLimit = vi.fn(async () => []);
 const grantPaidRerollCreditsForOrder = vi.fn(async () => undefined);
 const inngestSend = vi.fn(async () => undefined);
+const getAutoGenerateAfterPayment = vi.fn(() => true);
 
 const select = vi.fn(() => ({
   from: vi.fn(() => ({
@@ -46,6 +47,7 @@ vi.mock("@/lib/stripe", () => ({
     },
   }),
   getStripeWebhookSecret: () => "whsec_test",
+  getAutoGenerateAfterPayment,
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -223,5 +225,41 @@ describe("stripe webhook route", () => {
 
     expect(response.status).toBe(200);
     expect(updateSet).toHaveBeenCalledWith({ paymentStatus: "expired" });
+  });
+
+  it("does not enqueue pipeline when auto-generation flag is disabled", async () => {
+    getAutoGenerateAfterPayment.mockReturnValueOnce(false);
+    constructEvent.mockReturnValue({
+      id: "evt_paid_2",
+      type: "checkout.session.completed",
+      livemode: false,
+      created: 1_735_000_010,
+      data: {
+        object: {
+          id: "cs_test_disabled",
+          payment_intent: "pi_test_disabled",
+          metadata: { orderId: "order-2" },
+        },
+      },
+    });
+
+    selectLimit
+      .mockResolvedValueOnce([{ id: "order-2", userId: "user-2" }])
+      .mockResolvedValueOnce([]);
+
+    const { POST } = await import("@/app/api/webhooks/stripe/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/webhooks/stripe", {
+        method: "POST",
+        headers: {
+          "stripe-signature": "sig_test",
+        },
+        body: "{}",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(inngestSend).not.toHaveBeenCalled();
   });
 });

@@ -136,13 +136,17 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
     ).toBeVisible();
 
     // Open prompt tab and switch per-scene character.
-    await page.getByRole("tab", { name: "Character + Prompt" }).first().click();
-    await page.locator('[id^="final-page-character-"]').first().click();
+    const sceneOneCard = page
+      .locator("div.rounded-xl.border.bg-card")
+      .filter({ hasText: "Scene 1" })
+      .first();
+    await sceneOneCard.getByRole("tab", { name: "Character + Prompt" }).click();
+    await sceneOneCard.getByLabel("Character for this generation").click();
     await page.getByRole("option", { name: /Eli E2E/ }).click();
 
     // Open request preview and verify both storyboard + character references are included.
-    await page.getByRole("button", { name: "Full request preview" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Full request preview" });
+    await sceneOneCard.getByRole("button", { name: "Full request preview" }).click();
+    const dialog = page.getByRole("dialog", { name: "Full request preview" }).last();
     await expect(dialog).toContainText('"image": [');
     await expect(dialog).toContainText("https://example.com/e2e-storyboard.png");
     await expect(dialog).toContainText("https://example.com/e2e-char2.png");

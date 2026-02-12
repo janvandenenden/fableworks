@@ -65,6 +65,53 @@
   - `npm run lint` (pass)
   - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts` (pass)
 
+### Paid-order generation follow-up
+- Updated paid-order pipeline to generate final assets post-payment:
+  - `src/inngest/functions/process-paid-order.ts`
+  - flow now attempts:
+    1. `generateFinalPagesAction` (all missing scene pages),
+    2. `generateFinalCoverAction`,
+    3. `generatePrintFilesForStory`.
+  - if pages/cover generation is blocked (missing prerequisites), pipeline records `waiting_for_assets` with note.
+  - on success it proceeds to PDF creation and milestone email path as before.
+- Validation:
+  - `npm run lint` (pass)
+  - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts` (pass)
+
+### Reliability + UX hardening follow-up
+- Added auto-generation feature flag:
+  - `src/lib/stripe.ts`
+  - `getAutoGenerateAfterPayment()` (defaults true; supports `AUTO_GENERATE_AFTER_PAYMENT=false`).
+  - `src/app/api/webhooks/stripe/route.ts`
+  - only enqueues `order/paid` when feature flag is enabled.
+- Added admin retry control for paid-order processing:
+  - `src/app/admin/books/actions.ts`
+  - new `retryPaidOrderProcessingAction(formData)` sends `order/paid` event for linked order.
+  - `src/app/admin/books/[id]/page.tsx`
+  - new **Retry Processing** button in Lulu/fulfillment controls.
+- Simplified customer pipeline visibility (no raw JSON payloads):
+  - `src/lib/order-status.ts`
+  - new `toCustomerPipelineStatus(...)`.
+  - `src/app/(app)/create/generating/page.tsx`
+  - now shows clean processing status labels/details.
+  - `src/app/(app)/books/[id]/page.tsx`
+  - processing timeline card now shows clean status instead of raw artifacts.
+- Added tests for new behavior:
+  - `src/app/api/webhooks/stripe/__tests__/route.test.ts`
+    - verifies no pipeline enqueue when `AUTO_GENERATE_AFTER_PAYMENT` disabled.
+  - `src/lib/__tests__/notifications.test.ts`
+    - verifies idempotent duplicate notification reservation handling and no-provider fallback behavior.
+  - `src/lib/__tests__/order-status.test.ts`
+    - covers pipeline status mapping.
+- Added customer paid-flow e2e spec scaffold:
+  - `e2e/customer-paid-flow.spec.ts`
+  - covers success page -> books tracking -> book detail shipping + processing.
+  - local run currently blocked in this environment by `better-sqlite3` Node ABI mismatch in Next dev runtime.
+
+- Validation:
+  - `npm run lint` (pass)
+  - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts src/lib/__tests__/notifications.test.ts` (pass)
+
 ## 2026-02-12 -- Phase 8 implementation (slice 6: paid-order orchestration trigger + timeline visibility) [in progress]
 
 ### Actions

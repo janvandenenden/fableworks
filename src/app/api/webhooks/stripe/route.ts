@@ -4,7 +4,11 @@ import Stripe from "stripe";
 import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
 import { grantPaidRerollCreditsForOrder } from "@/lib/credits";
-import { getStripeClient, getStripeWebhookSecret } from "@/lib/stripe";
+import {
+  getAutoGenerateAfterPayment,
+  getStripeClient,
+  getStripeWebhookSecret,
+} from "@/lib/stripe";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -156,15 +160,17 @@ export async function POST(request: Request) {
           });
         }
 
-        try {
-          await inngest.send({
-            name: "order/paid",
-            data: {
-              orderId: order.id,
-            },
-          });
-        } catch {
-          // Keep webhook success path resilient; Inngest retries are handled separately.
+        if (getAutoGenerateAfterPayment()) {
+          try {
+            await inngest.send({
+              name: "order/paid",
+              data: {
+                orderId: order.id,
+              },
+            });
+          } catch {
+            // Keep webhook success path resilient; Inngest retries are handled separately.
+          }
         }
       }
     }

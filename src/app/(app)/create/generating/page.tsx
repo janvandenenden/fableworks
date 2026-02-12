@@ -4,7 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { db, schema } from "@/db";
-import { toCustomerFulfillmentStatus, toCustomerPaymentStatus, toToneClasses } from "@/lib/order-status";
+import {
+  toCustomerFulfillmentStatus,
+  toCustomerPaymentStatus,
+  toCustomerPipelineStatus,
+  toToneClasses,
+} from "@/lib/order-status";
 
 async function getCurrentUserIdOrFallback(): Promise<string> {
   try {
@@ -77,6 +82,7 @@ export default async function CreateGeneratingPage({
 
   const payment = toCustomerPaymentStatus(order?.paymentStatus);
   const fulfillment = toCustomerFulfillmentStatus(book?.printStatus);
+  const pipeline = toCustomerPipelineStatus(latestRun);
   const progressValue =
     order?.paymentStatus === "paid" ? (book?.printStatus === "shipped" || book?.printStatus === "delivered" ? 100 : 55) : 25;
 
@@ -104,17 +110,9 @@ export default async function CreateGeneratingPage({
                 <p className="font-medium">Fulfillment: {fulfillment.label}</p>
                 <p className="text-xs">{fulfillment.detail}</p>
               </div>
-              <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                <p className="font-medium">Pipeline</p>
-                <p className="text-xs text-muted-foreground">
-                  {latestRun
-                    ? latestRun.status === "failed"
-                      ? `Failed: ${latestRun.errorMessage ?? "Unknown error"}`
-                      : latestRun.status === "running"
-                        ? "Running finalization tasks"
-                        : "Queued / waiting for assets"
-                    : "Queued"}
-                </p>
+              <div className={`rounded-md border p-3 text-sm ${toToneClasses(pipeline.tone)}`}>
+                <p className="font-medium">Processing: {pipeline.label}</p>
+                <p className="text-xs">{pipeline.detail}</p>
               </div>
               <Progress value={progressValue} />
               <div className="flex gap-2">

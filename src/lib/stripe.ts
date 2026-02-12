@@ -62,3 +62,9 @@ export function getShippingCountries(): string[] {
     .filter((item) => /^[A-Z]{2}$/.test(item));
   return codes.length > 0 ? codes : ["US"];
 }
+
+export function getAutoGenerateAfterPayment(): boolean {
+  const raw = process.env.AUTO_GENERATE_AFTER_PAYMENT?.trim().toLowerCase();
+  if (!raw) return true;
+  return raw === "1" || raw === "true" || raw === "yes";
+}

@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
+import { inngest } from "@/inngest/client";
 import {
   generateBookCoverPdfBuffer,
   generateBookInteriorPdfBuffer,
@@ -700,6 +701,61 @@ export async function refreshLuluStatusAction(formData: FormData): Promise<Actio
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to refresh Lulu status",
+    };
+  }
+}
+
+export async function retryPaidOrderProcessingAction(
+  formData: FormData
+): Promise<ActionResult<{ orderId: string }>> {
+  const parsed = bookIdSchema.safeParse({ bookId: formData.get("bookId") });
+  if (!parsed.success) {
+    return { success: false, error: "Invalid book id" };
+  }
+
+  try {
+    const rows = await db
+      .select({
+        orderId: schema.books.orderId,
+      })
+      .from(schema.books)
+      .where(eq(schema.books.id, parsed.data.bookId))
+      .limit(1);
+    const orderId = rows[0]?.orderId;
+    if (!orderId) {
+      return { success: false, error: "Book has no linked order" };
+    }
+
+    await inngest.send({
+      name: "order/paid",
+      data: { orderId },
+    });
+
+    await db.insert(schema.promptArtifacts).values({
+      id: newId(),
+      entityType: "order_generation_pipeline_retry",
+      entityId: orderId,
+      rawPrompt: "Manual retry requested from admin fulfillment page",
+      model: "internal-pipeline",
+      status: "success",
+      createdAt: new Date(),
+    });
+
+    const storyRows = await db
+      .select({ storyId: schema.orders.storyId })
+      .from(schema.orders)
+      .where(eq(schema.orders.id, orderId))
+      .limit(1);
+    const storyId = storyRows[0]?.storyId;
+
+    revalidatePath("/admin/books");
+    if (storyId) revalidatePath(`/admin/books/${storyId}`);
+
+    return { success: true, data: { orderId } };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to enqueue processing retry",
     };
   }
 }

@@ -12,6 +12,12 @@ export type CustomerFulfillmentStatus = {
   tone: CustomerStatusTone;
 };
 
+export type CustomerPipelineStatus = {
+  label: string;
+  detail: string;
+  tone: CustomerStatusTone;
+};
+
 export function toCustomerPaymentStatus(status: string | null | undefined): CustomerPaymentStatus {
   switch (status) {
     case "paid":
@@ -98,4 +104,71 @@ export function toToneClasses(tone: CustomerStatusTone): string {
     default:
       return "border-border bg-muted/30 text-foreground";
   }
+}
+
+type PipelineRunLike = {
+  status: string | null | undefined;
+  structuredFields?: unknown;
+  errorMessage?: string | null;
+};
+
+function readPipelineStage(value: unknown): string | null {
+  if (!value) return null;
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const stage = (parsed as { stage?: unknown }).stage;
+  return typeof stage === "string" ? stage : null;
+}
+
+export function toCustomerPipelineStatus(run: PipelineRunLike | null | undefined): CustomerPipelineStatus {
+  if (!run) {
+    return {
+      label: "Queued",
+      detail: "Your order is queued for processing.",
+      tone: "neutral",
+    };
+  }
+  if (run.status === "failed") {
+    return {
+      label: "Processing issue",
+      detail: run.errorMessage || "There was a temporary issue while processing your order.",
+      tone: "warning",
+    };
+  }
+  if (run.status === "running") {
+    return {
+      label: "Processing",
+      detail: "We are generating your final book files.",
+      tone: "neutral",
+    };
+  }
+
+  const stage = readPipelineStage(run.structuredFields);
+  if (stage === "complete") {
+    return {
+      label: "Processing complete",
+      detail: "Your print files are ready.",
+      tone: "success",
+    };
+  }
+  if (stage === "waiting_for_assets") {
+    return {
+      label: "Processing queued",
+      detail: "We are waiting for remaining story assets before finalization.",
+      tone: "neutral",
+    };
+  }
+
+  return {
+    label: "Queued",
+    detail: "Your order is queued for processing.",
+    tone: "neutral",
+  };
 }

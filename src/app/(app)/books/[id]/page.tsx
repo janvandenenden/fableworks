@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db, schema } from "@/db";
 import {
   toCustomerFulfillmentStatus,
+  toCustomerPipelineStatus,
   toCustomerPaymentStatus,
   toToneClasses,
 } from "@/lib/order-status";
@@ -126,6 +127,8 @@ export default async function CustomerBookDetailPage({
 
   const payment = toCustomerPaymentStatus(order.paymentStatus);
   const fulfillment = toCustomerFulfillmentStatus(book.printStatus);
+  const latestPipelineRun = pipelineRuns[0] ?? null;
+  const pipeline = toCustomerPipelineStatus(latestPipelineRun);
   const storyTitle = story?.title?.trim() || "Untitled story";
   const shippingAddress = (() => {
     const raw = order.shippingAddressJson;
@@ -257,28 +260,10 @@ export default async function CustomerBookDetailPage({
           <CardTitle>Processing Timeline</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          {pipelineRuns.length === 0 ? (
-            <p className="text-muted-foreground">Queued for processing.</p>
-          ) : (
-            pipelineRuns.map((run) => (
-              <div key={run.id} className="rounded-md border bg-muted/30 p-2">
-                <p className="font-medium">
-                  {run.status === "failed"
-                    ? "Failed"
-                    : run.status === "running"
-                      ? "Running"
-                      : "Completed"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {run.errorMessage
-                    ? run.errorMessage
-                    : run.structuredFields
-                      ? String(run.structuredFields)
-                      : "No details"}
-                </p>
-              </div>
-            ))
-          )}
+          <div className={`rounded-md border p-3 ${toToneClasses(pipeline.tone)}`}>
+            <p className="font-medium">{pipeline.label}</p>
+            <p className="text-xs">{pipeline.detail}</p>
+          </div>
         </CardContent>
       </Card>
     </div>

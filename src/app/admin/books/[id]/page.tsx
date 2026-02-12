@@ -15,6 +15,7 @@ import {
   createOrGetBookForStoryAction,
   generateBookPdfAction,
   refreshLuluStatusAction,
+  retryPaidOrderProcessingAction,
   submitToLuluAction,
   updateManualPrintAction,
 } from "@/app/admin/books/actions";
@@ -235,6 +236,12 @@ export default async function AdminBookDetailPage({
                   <input type="hidden" name="bookId" value={book.id} />
                   <Button type="submit" variant="outline" size="sm" disabled={!book.luluPrintJobId}>
                     Refresh Print Status
+                  </Button>
+                </form>
+                <form action={retryPaidOrderProcessingAction}>
+                  <input type="hidden" name="bookId" value={book.id} />
+                  <Button type="submit" variant="outline" size="sm">
+                    Retry Processing
                   </Button>
                 </form>
               </div>
