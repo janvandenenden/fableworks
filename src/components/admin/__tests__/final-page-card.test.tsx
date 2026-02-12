@@ -15,6 +15,10 @@ const approveFinalPageVersionAction = vi.fn(async () => ({
   success: true,
   data: { id: "page-1" },
 }));
+const deleteFinalPageVersionAction = vi.fn(async () => ({
+  success: true,
+  data: { id: "page-1" },
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -47,6 +51,8 @@ vi.mock("@/app/admin/stories/[id]/pages/actions", () => ({
     saveFinalPagePromptDraftAction(...args),
   approveFinalPageVersionAction: (...args: unknown[]) =>
     approveFinalPageVersionAction(...args),
+  deleteFinalPageVersionAction: (...args: unknown[]) =>
+    deleteFinalPageVersionAction(...args),
 }));
 
 function createScene(overrides?: Partial<Parameters<typeof FinalPageCard>[0]["scene"]>) {

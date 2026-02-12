@@ -7,6 +7,8 @@ const insertValues = vi.fn(async () => undefined);
 const updateWhere = vi.fn(async () => undefined);
 const updateSet = vi.fn(() => ({ where: updateWhere }));
 const update = vi.fn(() => ({ set: updateSet }));
+const deleteWhere = vi.fn(async () => undefined);
+const deleteFn = vi.fn(() => ({ where: deleteWhere }));
 
 function setRows(table: string, rows: unknown[]) {
   tableRows[table] = rows;
@@ -38,7 +40,7 @@ vi.mock("@/db", () => ({
     select,
     insert: vi.fn(() => ({ values: insertValues })),
     update,
-    delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+    delete: deleteFn,
   },
   schema: {
     stories: {
@@ -162,6 +164,7 @@ vi.mock("@/lib/replicate", () => ({
 
 vi.mock("@/lib/r2", () => ({
   copyFromTempUrl: vi.fn(async () => "https://r2.example/final.png"),
+  deleteFromR2PublicUrl: vi.fn(async () => undefined),
 }));
 
 const STORY_ID = "00000000-0000-4000-8000-000000000001";
@@ -169,6 +172,7 @@ const SCENE_ID = "00000000-0000-4000-8000-000000000002";
 const RUN_ID = "00000000-0000-4000-8000-000000000003";
 const PAGE_ID = "00000000-0000-4000-8000-000000000004";
 const CHARACTER_ID = "00000000-0000-4000-8000-000000000005";
+const FINAL_IMAGE_URL = "https://r2.example/final-v1.png";
 
 function seedCommonRows() {
   setRows("stories", [{ id: STORY_ID, characterId: null }]);
@@ -343,5 +347,25 @@ describe("final page actions", () => {
     expect(result.success).toBe(true);
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: "pages_generating" }));
     expect(updateSet).toHaveBeenCalledWith(expect.objectContaining({ status: "pages_ready" }));
+  });
+
+  it("deleteFinalPageVersionAction deletes storage object and related rows", async () => {
+    setRows("final_pages", [{ id: PAGE_ID, sceneId: SCENE_ID, imageUrl: FINAL_IMAGE_URL }]);
+    const { deleteFromR2PublicUrl } = await import("@/lib/r2");
+    const deleteFromR2Mock =
+      deleteFromR2PublicUrl as unknown as ReturnType<typeof vi.fn>;
+    const { deleteFinalPageVersionAction } = await import(
+      "@/app/admin/stories/[id]/pages/actions"
+    );
+
+    const formData = new FormData();
+    formData.set("storyId", STORY_ID);
+    formData.set("finalPageId", PAGE_ID);
+
+    const result = await deleteFinalPageVersionAction(formData);
+
+    expect(result.success).toBe(true);
+    expect(deleteFromR2Mock).toHaveBeenCalledWith(FINAL_IMAGE_URL);
+    expect(deleteFn).toHaveBeenCalledTimes(2);
   });
 });

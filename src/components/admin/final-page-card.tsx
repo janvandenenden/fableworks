@@ -7,6 +7,7 @@ import { Code2, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   approveFinalPageVersionAction,
+  deleteFinalPageVersionAction,
   generateFinalPageAction,
   generateFinalPageFromRunAction,
   saveFinalPagePromptDraftAction,
@@ -54,6 +55,7 @@ export function FinalPageCard({
   const [isGenerating, startGeneratingTransition] = useTransition();
   const [isSavingPrompt, startSavePromptTransition] = useTransition();
   const [isApproving, startApproveTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
   const [isReusingRunId, setIsReusingRunId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState(scene.promptPreview);
   const [savedPromptBase, setSavedPromptBase] = useState(scene.promptPreview);
@@ -179,6 +181,26 @@ export function FinalPageCard({
         return;
       }
       toast.success(approved ? "Version approved" : "Approval removed");
+      router.refresh();
+    });
+  }
+
+  function deleteVersion(finalPageId: string) {
+    const confirmed = window.confirm(
+      "Delete this final page version? This removes the image from storage and database."
+    );
+    if (!confirmed) return;
+
+    startDeleteTransition(async () => {
+      const formData = new FormData();
+      formData.set("storyId", scene.storyId);
+      formData.set("finalPageId", finalPageId);
+      const result = await deleteFinalPageVersionAction(formData);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Version deleted");
       router.refresh();
     });
   }
@@ -393,9 +415,18 @@ export function FinalPageCard({
                             size="sm"
                             variant={versionRow.isApproved ? "secondary" : "outline"}
                             onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
-                            disabled={isApproving}
+                            disabled={isApproving || isDeleting}
                           >
                             {versionRow.isApproved ? "Unapprove" : "Approve"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteVersion(versionRow.id)}
+                            disabled={isApproving || isDeleting}
+                          >
+                            Delete
                           </Button>
                         </div>
                       </div>

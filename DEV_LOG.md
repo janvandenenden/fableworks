@@ -1,5 +1,27 @@
 # Fableworks Development Log
 
+## 2026-02-12 -- Final pages: delete version support [in progress]
+
+### Actions
+- Added R2 delete helper:
+  - `src/lib/r2.ts`
+  - new `deleteFromR2PublicUrl(publicUrl)` deletes objects by configured public URL prefix.
+- Added final-page delete server action:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - `deleteFinalPageVersionAction(formData)`:
+    - validates IDs
+    - deletes image from R2 storage
+    - removes related `generated_assets` rows
+    - removes `final_pages` row
+    - revalidates story/final-pages routes
+- Added per-version delete control in UI:
+  - `src/components/admin/final-page-card.tsx`
+  - each version row now has a `Delete` button with confirmation prompt.
+
+### Tests
+- `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/components/admin/__tests__/final-page-card.test.tsx src/lib/__tests__/r2.test.ts` (pass)
+- `npm run lint` (pass)
+
 ## 2026-02-12 -- Final pages UX: version-aware preview for approval
 
 ### Actions

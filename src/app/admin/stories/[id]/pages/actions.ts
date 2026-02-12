@@ -9,7 +9,7 @@ import {
   extractImageUrl,
   getReplicateClient,
 } from "@/lib/replicate";
-import { copyFromTempUrl } from "@/lib/r2";
+import { copyFromTempUrl, deleteFromR2PublicUrl } from "@/lib/r2";
 import { consumeGenerationCreditForUser } from "@/lib/credits";
 import {
   buildFinalPagePrompt,
@@ -51,6 +51,10 @@ const approveFinalPageSchema = z.object({
   storyId: z.string().uuid(),
   finalPageId: z.string().uuid(),
   approved: z.enum(["true", "false"]),
+});
+const deleteFinalPageSchema = z.object({
+  storyId: z.string().uuid(),
+  finalPageId: z.string().uuid(),
 });
 
 const imageRefArraySchema = z.array(z.string().min(1)).min(2);
@@ -752,6 +756,48 @@ export async function approveFinalPageVersionAction(
     .where(eq(schema.finalPages.id, payload.finalPageId));
 
   revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  return { success: true, data: { id: payload.finalPageId } };
+}
+
+export async function deleteFinalPageVersionAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = deleteFinalPageSchema.parse({
+    storyId: formData.get("storyId"),
+    finalPageId: formData.get("finalPageId"),
+  });
+
+  const finalPageRows = await db
+    .select()
+    .from(schema.finalPages)
+    .where(eq(schema.finalPages.id, payload.finalPageId))
+    .limit(1);
+  const finalPage = finalPageRows[0];
+  if (!finalPage) {
+    return { success: false, error: "Final page not found" };
+  }
+
+  try {
+    await deleteFromR2PublicUrl(finalPage.imageUrl);
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? `Failed to delete image from storage: ${error.message}`
+          : "Failed to delete image from storage",
+    };
+  }
+
+  await db
+    .delete(schema.generatedAssets)
+    .where(eq(schema.generatedAssets.entityId, payload.finalPageId));
+  await db
+    .delete(schema.finalPages)
+    .where(eq(schema.finalPages.id, payload.finalPageId));
+
+  revalidatePath(`/admin/stories/${payload.storyId}/pages`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
   return { success: true, data: { id: payload.finalPageId } };
 }
 

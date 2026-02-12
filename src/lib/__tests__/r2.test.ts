@@ -25,6 +25,12 @@ vi.mock("@aws-sdk/client-s3", () => {
         this.input = input;
       }
     },
+    DeleteObjectCommand: class MockDeleteObjectCommand {
+      input: unknown;
+      constructor(input: unknown) {
+        this.input = input;
+      }
+    },
   };
 });
 
@@ -36,6 +42,7 @@ let uploadToR2: typeof import("@/lib/r2").uploadToR2;
 let getPresignedUploadUrl: typeof import("@/lib/r2").getPresignedUploadUrl;
 let getPresignedDownloadUrl: typeof import("@/lib/r2").getPresignedDownloadUrl;
 let copyFromTempUrl: typeof import("@/lib/r2").copyFromTempUrl;
+let deleteFromR2PublicUrl: typeof import("@/lib/r2").deleteFromR2PublicUrl;
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -46,6 +53,7 @@ beforeEach(async () => {
   getPresignedUploadUrl = mod.getPresignedUploadUrl;
   getPresignedDownloadUrl = mod.getPresignedDownloadUrl;
   copyFromTempUrl = mod.copyFromTempUrl;
+  deleteFromR2PublicUrl = mod.deleteFromR2PublicUrl;
 });
 
 describe("r2", () => {
@@ -105,6 +113,19 @@ describe("r2", () => {
       await expect(
         copyFromTempUrl("https://bad-url.example.com/missing.png", "test/key")
       ).rejects.toThrow("Failed to fetch from temp URL: 404 Not Found");
+    });
+  });
+
+  describe("deleteFromR2PublicUrl", () => {
+    it("deletes a public R2 object by URL", async () => {
+      await deleteFromR2PublicUrl("https://test-r2.example.com/books/123/page.png");
+      expect(mockSend).toHaveBeenCalled();
+    });
+
+    it("rejects deleting URL outside configured public base", async () => {
+      await expect(
+        deleteFromR2PublicUrl("https://other-host.example.com/books/123/page.png")
+      ).rejects.toThrow("outside configured public base URL");
     });
   });
 });

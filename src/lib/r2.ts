@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -114,4 +115,30 @@ export async function copyFromTempUrl(
     response.headers.get("content-type") ?? "application/octet-stream";
 
   return uploadToR2(buffer, destKey, contentType);
+}
+
+export async function deleteFromR2PublicUrl(publicUrl: string): Promise<void> {
+  const trimmed = publicUrl.trim();
+  if (!trimmed) {
+    throw new Error("Cannot delete R2 object: empty URL");
+  }
+
+  const publicBaseUrl = getPublicBaseUrl();
+  if (!trimmed.startsWith(`${publicBaseUrl}/`)) {
+    throw new Error("Cannot delete R2 object: URL is outside configured public base URL");
+  }
+
+  const key = trimmed.slice(publicBaseUrl.length + 1);
+  if (!key) {
+    throw new Error("Cannot delete R2 object: missing object key");
+  }
+
+  const client = getS3Client();
+  const bucket = getBucketName();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
+  );
 }
