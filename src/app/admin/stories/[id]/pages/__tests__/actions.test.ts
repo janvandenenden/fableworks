@@ -246,6 +246,7 @@ describe("final page actions", () => {
     expect(createPredictionMock).toHaveBeenCalledWith(
       "model-nano",
       expect.objectContaining({
+        image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
         image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
       })
     );
@@ -274,6 +275,7 @@ describe("final page actions", () => {
         entityType: "final_page_prompt_draft",
         rawPrompt: "Draft prompt",
         parameters: expect.objectContaining({
+          image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
           image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
         }),
       })
@@ -291,6 +293,7 @@ describe("final page actions", () => {
           prompt: "stored",
           aspect_ratio: "4:3",
           output_format: "png",
+          image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
           image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
         },
       },

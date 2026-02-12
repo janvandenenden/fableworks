@@ -47,6 +47,10 @@ describe("final page prompts", () => {
       prompt: "Final page prompt",
       aspect_ratio: FINAL_PAGE_ASPECT_RATIO,
       output_format: "png",
+      image_input: [
+        "https://example.com/storyboard.png",
+        "https://example.com/character.png",
+      ],
       image: [
         "https://example.com/storyboard.png",
         "https://example.com/character.png",

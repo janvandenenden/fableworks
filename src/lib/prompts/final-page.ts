@@ -43,10 +43,32 @@ export function buildFinalPagePrompt(input: {
           )
           .join("\n")
       : "- none";
+  const sceneLines = [
+    `- scene number: ${input.sceneNumber}`,
+    `- spread text: ${sanitizePromptText(input.spreadText) || "none"}`,
+    `- scene description: ${sanitizePromptText(input.sceneDescription) || "none"}`,
+    `- composition: ${sanitizePromptText(input.storyboardComposition) || "follow storyboard reference"}`,
+    `- background: ${sanitizePromptText(input.storyboardBackground) || "follow storyboard reference"}`,
+    `- foreground: ${sanitizePromptText(input.storyboardForeground) || "follow storyboard reference"}`,
+    `- environment: ${sanitizePromptText(input.storyboardEnvironment) || "follow storyboard reference"}`,
+    `- character pose: ${sanitizePromptText(input.storyboardCharacterPose) || "follow storyboard reference"}`,
+  ].join("\n");
+  const identityLines = [
+    `- character profile: ${sanitizePromptText(input.characterProfileSummary) || "preserve identity from character reference image"}`,
+    ...(input.doNotChange && input.doNotChange.length > 0
+      ? input.doNotChange.map((value) => `- keep: ${sanitizePromptText(value)}`)
+      : ["- keep: preserve identity consistency with the character reference image"]),
+  ].join("\n");
 
   return [
     "Final illustrated page for a children's picture book.",
-    "Turn [@image1] into a scene for a children's picture book. Replace the outline with the character image from [@image2].",
+    "Turn [@image1] into a scene for a children's picture book. Replace the child figure with the character image from [@image2].",
+    "",
+    "Scene context",
+    sceneLines,
+    "",
+    "Character identity constraints",
+    identityLines,
     "",
     "Style",
     `- style preset: ${sanitizePromptText(input.stylePreset) || "storybook illustration"}`,
@@ -58,6 +80,9 @@ export function buildFinalPagePrompt(input: {
     "Props in this scene",
     propsText,
     "",
+    `- storyboard reference image URL: ${sanitizePromptText(input.storyboardReferenceUrl) || "provided as image_input[0]"}`,
+    `- character reference image URL: ${sanitizePromptText(input.characterReferenceUrl) || "provided as image_input[1]"}`,
+    "",
   ].join("\n");
 }
 
@@ -66,10 +91,14 @@ export function buildFinalPageRequestPayload(input: {
   storyboardReferenceUrl: string;
   characterReferenceUrl: string;
 }) {
+  const refs = [input.storyboardReferenceUrl, input.characterReferenceUrl];
   return {
     prompt: input.prompt,
     aspect_ratio: FINAL_PAGE_ASPECT_RATIO,
     output_format: "png",
-    image: [input.storyboardReferenceUrl, input.characterReferenceUrl],
+    // NanoBanana expects `image_input` for multi-image references.
+    image_input: refs,
+    // Keep compatibility for older stored payload readers/tools.
+    image: refs,
   };
 }

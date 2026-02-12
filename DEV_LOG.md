@@ -13,6 +13,15 @@
     - `image[0] = current storyboard reference`
     - `image[1] = current character reference`
   - prevents missing reference images on subsequent regenerations.
+- Updated payload contract to match known-good NanoBanana usage:
+  - `src/lib/prompts/final-page.ts`
+  - `buildFinalPageRequestPayload(...)` now sends `image_input` (with compatibility alias `image`).
+  - restored rich final-page prompt structure (scene context, identity constraints, style, props, explicit refs) after finding a simplified prompt version had been left in place.
+- Updated final page payload parsing + preview:
+  - `src/app/admin/stories/[id]/pages/actions.ts`
+  - `src/components/admin/final-page-card.tsx`
+  - parser accepts `image_input` or legacy `image` and normalizes to dual refs.
+  - request preview now reflects `image_input`.
 - Cleanup:
   - `src/lib/prompts/final-page.ts`
   - removed unused `invariantsText` local to keep lint clean.
@@ -20,6 +29,7 @@
 ### Tests
 - `npm run lint` (pass)
 - `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
+- `npm run test -- src/lib/prompts/__tests__/final-page.test.ts src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
 
 ### Notes
 - Local DB inspection confirmed recent `final_page_image` artifacts store both URLs in:

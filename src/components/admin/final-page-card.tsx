@@ -81,7 +81,7 @@ export function FinalPageCard({
         {
           prompt,
           character_id: characterId === "__none" ? null : characterId,
-          image: effectiveCharacterReferenceUrl
+          image_input: effectiveCharacterReferenceUrl
             ? [scene.storyboardImageUrl, effectiveCharacterReferenceUrl]
             : [scene.storyboardImageUrl],
           aspect_ratio: "4:3",
