@@ -15,12 +15,12 @@
   - prevents missing reference images on subsequent regenerations.
 - Updated payload contract to match known-good NanoBanana usage:
   - `src/lib/prompts/final-page.ts`
-  - `buildFinalPageRequestPayload(...)` now sends `image_input` (with compatibility alias `image`).
+  - `buildFinalPageRequestPayload(...)` now sends only `image_input` (no alias).
   - restored rich final-page prompt structure (scene context, identity constraints, style, props, explicit refs) after finding a simplified prompt version had been left in place.
 - Updated final page payload parsing + preview:
   - `src/app/admin/stories/[id]/pages/actions.ts`
   - `src/components/admin/final-page-card.tsx`
-  - parser accepts `image_input` or legacy `image` and normalizes to dual refs.
+  - parser now requires `image_input` and normalizes regenerate payloads to dual refs.
   - request preview now reflects `image_input`.
 - Cleanup:
   - `src/lib/prompts/final-page.ts`

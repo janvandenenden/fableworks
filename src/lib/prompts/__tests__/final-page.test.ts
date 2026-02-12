@@ -51,10 +51,6 @@ describe("final page prompts", () => {
         "https://example.com/storyboard.png",
         "https://example.com/character.png",
       ],
-      image: [
-        "https://example.com/storyboard.png",
-        "https://example.com/character.png",
-      ],
     });
   });
 });

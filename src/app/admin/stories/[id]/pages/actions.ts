@@ -57,22 +57,18 @@ const imageRefArraySchema = z.array(z.string().min(1)).min(2);
 
 const finalPageRequestPayloadSchema = z
   .object({
-  prompt: z.string().min(1),
-  aspect_ratio: z.string().min(1),
-  output_format: z.string().min(1),
-    image_input: imageRefArraySchema.optional(),
-    image: imageRefArraySchema.optional(),
+    prompt: z.string().min(1),
+    aspect_ratio: z.string().min(1),
+    output_format: z.string().min(1),
+    image_input: imageRefArraySchema,
   })
-  .refine((value) => Boolean(value.image_input || value.image), {
-    message: "image_input or image must be present",
-  });
+  .strict();
 
 type FinalPageRequestPayload = {
   prompt: string;
   aspect_ratio: string;
   output_format: string;
   image_input: string[];
-  image?: string[];
 };
 const finalCoverSchema = z.object({
   storyId: z.string().uuid(),
@@ -131,16 +127,7 @@ function parseRequestPayload(
     }
   }
   const result = finalPageRequestPayloadSchema.safeParse(parsed);
-  if (!result.success) return null;
-  const refs = result.data.image_input ?? result.data.image;
-  if (!refs || refs.length < 2) return null;
-  return {
-    prompt: result.data.prompt,
-    aspect_ratio: result.data.aspect_ratio,
-    output_format: result.data.output_format,
-    image_input: refs,
-    image: refs,
-  };
+  return result.success ? result.data : null;
 }
 
 function hasDualReferenceImages(
@@ -510,7 +497,6 @@ async function generateSingleFinalPage(input: {
     ...requestPayloadBase,
     // Always use live scene + character references, even when reusing a stored run payload.
     image_input: [panel.imageUrl, selectedImage.imageUrl],
-    image: [panel.imageUrl, selectedImage.imageUrl],
   };
   if (!hasDualReferenceImages(requestPayload)) {
     return {
@@ -903,7 +889,6 @@ async function generateSingleFinalCover(input: {
         })),
       // Always force dual references for cover generation.
       image_input: [contextResult.data.storyboardCoverUrl, contextResult.data.selectedImageUrl],
-      image: [contextResult.data.storyboardCoverUrl, contextResult.data.selectedImageUrl],
     };
   if (!hasDualReferenceImages(requestPayload)) {
     return {

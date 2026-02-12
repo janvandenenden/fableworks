@@ -57,7 +57,9 @@ export function buildFinalPagePrompt(input: {
     `- character profile: ${sanitizePromptText(input.characterProfileSummary) || "preserve identity from character reference image"}`,
     ...(input.doNotChange && input.doNotChange.length > 0
       ? input.doNotChange.map((value) => `- keep: ${sanitizePromptText(value)}`)
-      : ["- keep: preserve identity consistency with the character reference image"]),
+      : [
+          "- keep: preserve identity consistency with the character reference image",
+        ]),
   ].join("\n");
 
   return [
@@ -82,7 +84,6 @@ export function buildFinalPagePrompt(input: {
     "",
     `- storyboard reference image URL: ${sanitizePromptText(input.storyboardReferenceUrl) || "provided as image_input[0]"}`,
     `- character reference image URL: ${sanitizePromptText(input.characterReferenceUrl) || "provided as image_input[1]"}`,
-    "",
   ].join("\n");
 }
 
@@ -96,9 +97,6 @@ export function buildFinalPageRequestPayload(input: {
     prompt: input.prompt,
     aspect_ratio: FINAL_PAGE_ASPECT_RATIO,
     output_format: "png",
-    // NanoBanana expects `image_input` for multi-image references.
     image_input: refs,
-    // Keep compatibility for older stored payload readers/tools.
-    image: refs,
   };
 }

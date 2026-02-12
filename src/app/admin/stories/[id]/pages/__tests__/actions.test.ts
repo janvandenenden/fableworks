@@ -247,7 +247,6 @@ describe("final page actions", () => {
       "model-nano",
       expect.objectContaining({
         image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
-        image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
       })
     );
   });
@@ -276,7 +275,6 @@ describe("final page actions", () => {
         rawPrompt: "Draft prompt",
         parameters: expect.objectContaining({
           image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
-          image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
         }),
       })
     );
@@ -294,7 +292,6 @@ describe("final page actions", () => {
           aspect_ratio: "4:3",
           output_format: "png",
           image_input: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
-          image: ["https://r2.example/storyboard.png", "https://r2.example/char.png"],
         },
       },
     ]);
