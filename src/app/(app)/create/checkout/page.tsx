@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db, schema } from "@/db";
@@ -19,13 +19,24 @@ async function getCurrentUserIdOrNull(): Promise<string | null> {
 export default async function CreateCheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ canceled?: string; storyId?: string; characterId?: string }>;
+  searchParams: Promise<{
+    canceled?: string | string[];
+    storyId?: string | string[];
+    characterId?: string | string[];
+    forceNew?: string | string[];
+  }>;
 }) {
   const userId = await getCurrentUserIdOrNull();
   const params = await searchParams;
+  const asSingle = (value: string | string[] | undefined): string | null =>
+    Array.isArray(value) ? (value[0] ?? null) : value ?? null;
+  const canceled = asSingle(params.canceled);
+  const storyId = asSingle(params.storyId);
+  const characterId = asSingle(params.characterId);
+  const forceNew = asSingle(params.forceNew);
   const credits = userId ? await getUserCreditSnapshot(userId) : null;
 
-  const story = params.storyId
+  const story = storyId
     ? (
         await db
           .select({
@@ -36,12 +47,12 @@ export default async function CreateCheckoutPage({
             status: schema.stories.status,
           })
           .from(schema.stories)
-          .where(eq(schema.stories.id, params.storyId))
+          .where(eq(schema.stories.id, storyId))
           .limit(1)
       )[0]
     : null;
 
-  const character = params.characterId
+  const character = characterId
     ? (
         await db
           .select({
@@ -51,7 +62,7 @@ export default async function CreateCheckoutPage({
             status: schema.characters.status,
           })
           .from(schema.characters)
-          .where(eq(schema.characters.id, params.characterId))
+          .where(eq(schema.characters.id, characterId))
           .limit(1)
       )[0]
     : null;
@@ -62,6 +73,25 @@ export default async function CreateCheckoutPage({
   const isCharacterOwnedByViewer = character
     ? (userId ? character.userId === userId : character.userId === null)
     : true;
+  const latestOrderForStory =
+    story && userId
+      ? (
+          await db
+            .select({
+              id: schema.orders.id,
+              paymentStatus: schema.orders.paymentStatus,
+              createdAt: schema.orders.createdAt,
+            })
+            .from(schema.orders)
+            .where(and(eq(schema.orders.userId, userId), eq(schema.orders.storyId, story.id)))
+            .orderBy(desc(schema.orders.createdAt))
+            .limit(1)
+        )[0] ?? null
+      : null;
+  const isRetryFlow =
+    latestOrderForStory?.paymentStatus === "failed" ||
+    latestOrderForStory?.paymentStatus === "expired";
+  const isAlreadyPaid = latestOrderForStory?.paymentStatus === "paid" && forceNew !== "1";
 
   return (
     <div className="space-y-6">
@@ -72,7 +102,7 @@ export default async function CreateCheckoutPage({
         </p>
       </div>
 
-      {params.canceled === "1" ? (
+      {canceled === "1" ? (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="pt-6 text-sm text-amber-900">
             Checkout was canceled. You can retry payment whenever you are ready.
@@ -119,41 +149,78 @@ export default async function CreateCheckoutPage({
                 <Link href="/create/character">Restart Create Flow</Link>
               </Button>
             </div>
-          ) : (
-            <form action={createCheckoutSessionAction} className="space-y-4 rounded-md border p-4">
-              <input type="hidden" name="storyId" value={story.id} />
-              {character ? <input type="hidden" name="characterId" value={character.id} /> : null}
-
-              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-                <p className="text-sm">
-                  <span className="font-medium">Story:</span>{" "}
-                  {story.title?.trim() || "Untitled story"} ({story.status})
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Theme:</span> {story.theme || "n/a"}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Character:</span>{" "}
-                  {character ? `${character.name} (${character.status})` : "No character selected"}
-                </p>
-              </div>
-
+          ) : isAlreadyPaid ? (
+            <div className="space-y-3 rounded-md border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm text-emerald-900">
+                This story already has a paid checkout. Open your books library to track fulfillment.
+              </p>
               <div className="flex gap-2">
-                <Button type="submit">Continue to Stripe Checkout</Button>
+                <Button asChild>
+                  <Link href="/books">Go to My Books</Link>
+                </Button>
                 <Button asChild variant="outline">
-                  <Link
-                    href={
-                      character ? `/create/story?characterId=${character.id}` : "/create/story"
-                    }
-                  >
-                    Edit Story
+                  <Link href={`/create/checkout?storyId=${story.id}&forceNew=1`}>
+                    Start New Checkout Anyway
                   </Link>
                 </Button>
-                <Button asChild variant="outline">
-                  <Link href="/create/character">Edit Character</Link>
-                </Button>
               </div>
-            </form>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {latestOrderForStory?.paymentStatus === "pending" ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  You have a pending order for this story. Continue checkout to complete payment.
+                </div>
+              ) : null}
+              {isRetryFlow ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Previous checkout was {latestOrderForStory.paymentStatus}. Retry payment below.
+                </div>
+              ) : null}
+
+              <form action={createCheckoutSessionAction} className="space-y-4 rounded-md border p-4">
+                <input type="hidden" name="storyId" value={story.id} />
+                {character ? <input type="hidden" name="characterId" value={character.id} /> : null}
+
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <p className="text-sm">
+                    <span className="font-medium">Story:</span>{" "}
+                    {story.title?.trim() || "Untitled story"} ({story.status})
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Theme:</span> {story.theme || "n/a"}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Character:</span>{" "}
+                    {character ? `${character.name} (${character.status})` : "No character selected"}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button type="submit">
+                    {isRetryFlow ? "Retry Checkout" : "Continue to Stripe Checkout"}
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link
+                      href={
+                        character ? `/create/story?characterId=${character.id}` : "/create/story"
+                      }
+                    >
+                      Edit Story
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/create/character">Edit Character</Link>
+                  </Button>
+                </div>
+              </form>
+
+              {latestOrderForStory ? (
+                <p className="text-xs text-muted-foreground">
+                  Latest order: {latestOrderForStory.id.slice(0, 8)} ({latestOrderForStory.paymentStatus})
+                </p>
+              ) : null}
+            </div>
           )}
 
           <div className="text-xs text-muted-foreground">

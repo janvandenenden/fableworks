@@ -1,5 +1,92 @@
 # Fableworks Development Log
 
+## 2026-02-12 -- Phase 8 implementation (slice 6: paid-order orchestration trigger + timeline visibility) [in progress]
+
+### Actions
+- Added reusable print-file generation service:
+  - `src/lib/book-generation.ts`
+  - new `generatePrintFilesForStory(storyId)` builds interior/cover PDFs, uploads to R2, persists `generated_assets`, and updates `books.printStatus = pdf_ready`.
+- Added Inngest paid-order pipeline function:
+  - `src/inngest/functions/process-paid-order.ts`
+  - listens to `order/paid`,
+  - ensures book exists,
+  - marks order pipeline run in `prompt_artifacts` (`entityType = order_generation_pipeline`),
+  - attempts PDF generation in background,
+  - writes status outcomes:
+    - complete (success),
+    - waiting_for_assets (story/final-pages not ready yet),
+    - failed (unexpected errors + marks book `errored`).
+- Registered pipeline function:
+  - `src/inngest/functions/index.ts`
+- Wired Stripe webhook handoff to pipeline:
+  - `src/app/api/webhooks/stripe/route.ts`
+  - on `checkout.session.completed` now sends Inngest event `order/paid` after payment/book/credits update.
+- Extended webhook tests:
+  - `src/app/api/webhooks/stripe/__tests__/route.test.ts`
+  - asserts `inngest.send({ name: "order/paid", ... })` is called on successful completion.
+- Added customer-facing pipeline status visibility:
+  - `src/app/(app)/create/generating/page.tsx`
+    - now reads latest `order_generation_pipeline` run and surfaces queued/running/failed hints.
+  - `src/app/(app)/books/[id]/page.tsx`
+    - added processing timeline card from `order_generation_pipeline` artifact history.
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/stripe.test.ts src/lib/__tests__/order-status.test.ts` (pass)
+
+## 2026-02-12 -- Phase 8 implementation (slice 5: customer status pages wired to Stripe/order state) [in progress]
+
+### Actions
+- Added customer-facing order status mapping helper:
+  - `src/lib/order-status.ts`
+  - maps internal payment/fulfillment states into customer-friendly labels + details + UI tone classes.
+- Replaced `/books` placeholder with real owned-order list:
+  - `src/app/(app)/books/page.tsx`
+  - loads current user orders, story titles, and linked books.
+  - shows payment + fulfillment summary cards per order.
+  - links to book detail and tracking when available.
+- Replaced `/books/[id]` placeholder with real owned-book detail:
+  - `src/app/(app)/books/[id]/page.tsx`
+  - enforces ownership via `order.userId` check.
+  - shows mapped payment/fulfillment statuses and tracking link.
+  - surfaces interior/cover PDF download links when available.
+- Upgraded checkout success landing page:
+  - `src/app/(app)/create/generating/page.tsx`
+  - resolves `session_id` -> order -> book and shows live status blocks instead of static scaffold copy.
+  - links customer directly into `/books` or specific `/books/[id]`.
+- Added unit coverage for status mapping:
+  - `src/lib/__tests__/order-status.test.ts`
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/order-status.test.ts src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts` (pass)
+
+### CX4 Follow-up
+- Hardened Stripe webhook idempotency and retry behavior:
+  - `src/app/api/webhooks/stripe/route.ts`
+  - reserves incoming event IDs in `prompt_artifacts` (`entityType = stripe_webhook_event`) before processing.
+  - duplicate deliveries now return 200 early without re-applying payment/book/credit side effects.
+  - marks event processing state as `succeeded` or `failed` for diagnostics.
+  - prevents late `expired` / `payment_failed` events from downgrading already-paid orders.
+- Extended webhook tests:
+  - `src/app/api/webhooks/stripe/__tests__/route.test.ts`
+  - added duplicate event test to validate idempotent skip path.
+- `npm run test -- src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/stripe.test.ts` (pass)
+
+### CX3 Follow-up
+- Added customer-visible payment recovery CTAs:
+  - `src/app/(app)/books/page.tsx`
+  - failed/expired orders now show `Retry Checkout`.
+  - pending orders now show `Complete Checkout`.
+- Updated checkout review screen to reflect latest order state:
+  - `src/app/(app)/create/checkout/page.tsx`
+  - shows contextual messaging for pending/failed/expired history.
+  - changes submit CTA text to `Retry Checkout` when applicable.
+  - blocks accidental duplicate purchase when latest order is already paid, with explicit `Start New Checkout Anyway` override (`forceNew=1`).
+- Validation:
+  - `npm run lint` (pass)
+  - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts` (pass)
+
 ## 2026-02-12 -- Final pages: delete version support [in progress]
 
 ### Actions

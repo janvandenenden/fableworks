@@ -11,6 +11,11 @@ const checkoutPayloadSchema = z.object({
   characterId: z.string().uuid().optional().nullable(),
 });
 
+function formValueToString(value: FormDataEntryValue | null): string | null {
+  if (typeof value === "string") return value;
+  return null;
+}
+
 async function getCurrentUserIdOrFallback(): Promise<string> {
   try {
     const { auth } = await import("@clerk/nextjs/server");
@@ -26,17 +31,39 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+async function ensureUserExists(userId: string): Promise<void> {
+  const existing = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .limit(1);
+
+  if (existing[0]) return;
+
+  await db.insert(schema.users).values({
+    id: userId,
+    email: userId === "dev-user" ? "dev-user@local.fableworks" : `${userId}@local.fableworks`,
+    role: "customer",
+  });
+}
+
 export async function createCheckoutSessionAction(formData: FormData): Promise<void> {
+  const rawStoryId = formValueToString(formData.get("storyId"));
+  const rawCharacterId = formValueToString(formData.get("characterId"));
   const parsed = checkoutPayloadSchema.safeParse({
-    storyId: formData.get("storyId"),
-    characterId: formData.get("characterId"),
+    storyId: rawStoryId,
+    characterId: rawCharacterId,
   });
 
   if (!parsed.success) {
     throw new Error("Invalid checkout payload");
   }
 
-  const userId = await getCurrentUserIdOrFallback();
+  const resolvedUserId = await getCurrentUserIdOrFallback();
+  const normalizedUserId =
+    typeof resolvedUserId === "string" && resolvedUserId.trim().length > 0
+      ? resolvedUserId.trim()
+      : null;
   const stripe = getStripeClient();
   const appBaseUrl = getAppBaseUrl();
   const orderId = newId();
@@ -54,7 +81,7 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
   if (!story) {
     throw new Error("Story not found");
   }
-  if (story.userId && story.userId !== userId) {
+  if (story.userId && story.userId !== normalizedUserId) {
     throw new Error("Story does not belong to current user");
   }
 
@@ -74,20 +101,33 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
     if (!character) {
       throw new Error("Character not found");
     }
-    if (character.userId && character.userId !== userId) {
+    if (character.userId && character.userId !== normalizedUserId) {
       throw new Error("Character does not belong to current user");
     }
     characterLabel = character.name;
   }
 
   const priceConfig = getCheckoutPriceConfig();
+  const configuredAmount = Number(process.env.BOOK_PRICE_CENTS ?? 2999);
+  const fallbackAmountCents = 2999;
   const amountCents =
-    priceConfig.mode === "inline" ? priceConfig.amountCents : Number(process.env.BOOK_PRICE_CENTS ?? 2999);
-  const currency = priceConfig.mode === "inline" ? priceConfig.currency : "usd";
+    priceConfig.mode === "inline"
+      ? priceConfig.amountCents
+      : Number.isFinite(configuredAmount) && configuredAmount > 0
+        ? Math.round(configuredAmount)
+        : fallbackAmountCents;
+  const currency =
+    priceConfig.mode === "inline"
+      ? priceConfig.currency
+      : (process.env.BOOK_PRICE_CURRENCY?.trim().toLowerCase() || "usd");
+
+  if (normalizedUserId) {
+    await ensureUserExists(normalizedUserId);
+  }
 
   await db.insert(schema.orders).values({
     id: orderId,
-    userId,
+    userId: normalizedUserId,
     storyId: parsed.data.storyId,
     paymentStatus: "pending",
     amountCents,
@@ -124,7 +164,7 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
     line_items: lineItems,
     metadata: {
       orderId,
-      userId,
+      userId: normalizedUserId ?? "anonymous",
       storyId: parsed.data.storyId,
       characterId: characterId ?? "",
       characterLabel,
@@ -134,7 +174,7 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
   await db
     .update(schema.orders)
     .set({ stripeCheckoutSessionId: session.id })
-    .where((fields, { eq }) => eq(fields.id, orderId));
+    .where(eq(schema.orders.id, orderId));
 
   if (!session.url) {
     throw new Error("Stripe did not return checkout URL");
