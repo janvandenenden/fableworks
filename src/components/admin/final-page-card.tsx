@@ -58,6 +58,7 @@ export function FinalPageCard({
   const [prompt, setPrompt] = useState(scene.promptPreview);
   const [savedPromptBase, setSavedPromptBase] = useState(scene.promptPreview);
   const [characterId, setCharacterId] = useState(scene.defaultCharacterId ?? "__none");
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
 
   const hasUnsavedPrompt = prompt !== savedPromptBase;
   const storyLinkedCharacter = scene.availableCharacters.find(
@@ -74,6 +75,15 @@ export function FinalPageCard({
     characterId === "__none"
       ? storyLinkedCharacter?.selectedVariantImageUrl ?? null
       : selectedCharacter?.selectedVariantImageUrl ?? null;
+  const sortedVersions = useMemo(
+    () => scene.versions.slice().sort((a, b) => b.version - a.version),
+    [scene.versions]
+  );
+  const activePreviewVersion =
+    sortedVersions.find((version) => version.id === previewVersionId) ??
+    sortedVersions[0] ??
+    null;
+  const previewImageUrl = activePreviewVersion?.imageUrl ?? scene.latestImageUrl;
 
   const requestPreview = useMemo(
     () =>
@@ -328,11 +338,14 @@ export function FinalPageCard({
               </div>
 
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Latest final page</p>
+                <p className="text-xs text-muted-foreground">
+                  Final page preview{" "}
+                  {activePreviewVersion ? `(v${activePreviewVersion.version})` : "(none)"}
+                </p>
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-                  {scene.latestImageUrl ? (
+                  {previewImageUrl ? (
                     <Image
-                      src={scene.latestImageUrl}
+                      src={previewImageUrl}
                       alt={`Final page scene ${scene.sceneNumber}`}
                       fill
                       className="object-contain"
@@ -353,27 +366,38 @@ export function FinalPageCard({
                 <p className="text-xs text-muted-foreground">No versions yet.</p>
               ) : (
                 <div className="space-y-1">
-                  {scene.versions
-                    .slice()
-                    .sort((a, b) => b.version - a.version)
-                    .map((versionRow) => (
+                  {sortedVersions.map((versionRow) => (
                       <div
                         key={versionRow.id}
-                        className="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
+                        className={`flex items-center justify-between rounded-md border px-2 py-1 text-xs ${
+                          previewVersionId === versionRow.id || (!previewVersionId && sortedVersions[0]?.id === versionRow.id)
+                            ? "border-primary/50 bg-primary/5"
+                            : ""
+                        }`}
                       >
                         <span>
                           v{versionRow.version}
                           {versionRow.isApproved ? " (approved)" : ""}
                         </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={versionRow.isApproved ? "secondary" : "outline"}
-                          onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
-                          disabled={isApproving}
-                        >
-                          {versionRow.isApproved ? "Unapprove" : "Approve"}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setPreviewVersionId(versionRow.id)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={versionRow.isApproved ? "secondary" : "outline"}
+                            onClick={() => approveVersion(versionRow.id, !versionRow.isApproved)}
+                            disabled={isApproving}
+                          >
+                            {versionRow.isApproved ? "Unapprove" : "Approve"}
+                          </Button>
+                        </div>
                       </div>
                     ))}
                 </div>

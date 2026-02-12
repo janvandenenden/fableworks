@@ -133,4 +133,15 @@ describe("FinalPageCard", () => {
     expect(formData.get("characterId")).toBe("char-1");
     expect(formData.get("promptOverride")).toBe("Updated prompt");
   });
+
+  it("switches preview image when selecting a version row", async () => {
+    render(<FinalPageCard scene={createScene()} />);
+
+    expect(screen.getByText(/Final page preview \(v2\)/i)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "View" })[1]!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Final page preview \(v1\)/i)).toBeInTheDocument();
+    });
+  });
 });

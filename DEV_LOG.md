@@ -1,5 +1,22 @@
 # Fableworks Development Log
 
+## 2026-02-12 -- Final pages UX: version-aware preview for approval
+
+### Actions
+- Improved final page version review experience:
+  - `src/components/admin/final-page-card.tsx`
+  - Added per-version preview selection (`View` button on each version row).
+  - Preview panel now shows exactly which version is being inspected (e.g. `Final page preview (v2)`).
+  - Active/selected version row is visually highlighted.
+  - Approval actions remain per-version but now pair with direct preview context.
+- Added component test coverage:
+  - `src/components/admin/__tests__/final-page-card.test.tsx`
+  - verifies switching from v2 -> v1 updates preview label.
+
+### Tests
+- `npm run test -- src/components/admin/__tests__/final-page-card.test.tsx` (pass)
+- `npm run lint` (pass)
+
 ## 2026-02-11 -- Final page payload hardening (dual-image guard) [in progress]
 
 ### Actions
