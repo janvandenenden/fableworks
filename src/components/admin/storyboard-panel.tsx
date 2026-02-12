@@ -10,9 +10,11 @@ import {
 import { toast } from "sonner";
 import Image from "next/image";
 import {
+  deleteStoryboardPanelVersionAction,
   generateStoryboardPanelImageAction,
   generateStoryboardPanelImageFromRunAction,
   saveStoryboardPanelPromptDraftAction,
+  setStoryboardPanelVersionAction,
   updateStoryboardCompositionAction,
 } from "@/app/admin/stories/[id]/storyboard/actions";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -61,6 +64,13 @@ type StoryboardPanelData = {
     resultUrl: string | null;
     createdAt: string | null;
   }>;
+  versions: Array<{
+    id: string;
+    storageUrl: string;
+    label: string;
+    isActive: boolean;
+    createdAt: string | null;
+  }>;
 };
 
 function parsePropsUsed(value: string | null): string {
@@ -87,11 +97,20 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
   const [isGenerating, startGeneratingTransition] = useTransition();
   const [isSavingComposition, startSaveCompositionTransition] = useTransition();
   const [isSavingPrompt, startSavePromptTransition] = useTransition();
+  const [isUpdatingVersion, startVersionTransition] = useTransition();
   const [isReusingRunId, setIsReusingRunId] = useState<string | null>(null);
   const [promptOverride, setPromptOverride] = useState(panel.promptPreview);
   const [savedPromptBase, setSavedPromptBase] = useState(panel.promptPreview);
   const [isCompositionDirty, setIsCompositionDirty] = useState(false);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const [deleteDialogVersionId, setDeleteDialogVersionId] = useState<string | null>(null);
   const defaultTab = panel.imageUrl ? "image" : "composition";
+  const activePreviewVersion =
+    panel.versions.find((version) => version.id === previewVersionId) ??
+    panel.versions.find((version) => version.isActive) ??
+    panel.versions[0] ??
+    null;
+  const previewImageUrl = activePreviewVersion?.storageUrl ?? panel.imageUrl;
 
   const compositionInitial = useMemo(
     () => ({
@@ -215,6 +234,39 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
         return;
       }
       toast.success("Panel regenerated from selected run");
+      router.refresh();
+    });
+  }
+
+  function handleUseVersion(assetId: string) {
+    startVersionTransition(async () => {
+      const formData = new FormData();
+      formData.set("storyId", panel.storyId);
+      formData.set("panelId", panel.id);
+      formData.set("assetId", assetId);
+      const result = await setStoryboardPanelVersionAction(formData);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Storyboard version selected");
+      router.refresh();
+    });
+  }
+
+  function handleDeleteVersion(assetId: string) {
+    startVersionTransition(async () => {
+      const formData = new FormData();
+      formData.set("storyId", panel.storyId);
+      formData.set("panelId", panel.id);
+      formData.set("assetId", assetId);
+      const result = await deleteStoryboardPanelVersionAction(formData);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      setDeleteDialogVersionId(null);
+      toast.success("Storyboard version deleted");
       router.refresh();
     });
   }
@@ -353,10 +405,94 @@ export function StoryboardPanel({ panel }: { panel: StoryboardPanelData }) {
                 {panel.sceneDescription || panel.spreadText || "No scene text"}
               </p>
             </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Versions</p>
+              {panel.versions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No versions yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {panel.versions.map((version) => (
+                    <div
+                      key={version.id}
+                      className={`flex items-center justify-between rounded-md border px-2 py-1 text-xs ${
+                        activePreviewVersion?.id === version.id ? "border-primary/50 bg-primary/5" : ""
+                      }`}
+                    >
+                      <span>
+                        {version.label}
+                        {version.isActive ? " (active)" : ""}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPreviewVersionId(version.id)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleUseVersion(version.id)}
+                          disabled={isUpdatingVersion || version.isActive}
+                        >
+                          Use
+                        </Button>
+                        <Dialog
+                          open={deleteDialogVersionId === version.id}
+                          onOpenChange={(open) =>
+                            setDeleteDialogVersionId(open ? version.id : null)
+                          }
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={isUpdatingVersion}
+                            >
+                              Delete
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Delete storyboard version</DialogTitle>
+                              <DialogDescription>
+                                This permanently deletes the selected version image from storage and
+                                removes it from version history.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setDeleteDialogVersionId(null)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => handleDeleteVersion(version.id)}
+                                disabled={isUpdatingVersion}
+                              >
+                                Delete version
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md border bg-white">
-              {panel.imageUrl ? (
+              {previewImageUrl ? (
                 <Image
-                  src={panel.imageUrl}
+                  src={previewImageUrl}
                   alt={`Storyboard panel ${panel.sceneNumber}`}
                   fill
                   className="object-contain"

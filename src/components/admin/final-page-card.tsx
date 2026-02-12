@@ -19,6 +19,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -61,6 +62,7 @@ export function FinalPageCard({
   const [savedPromptBase, setSavedPromptBase] = useState(scene.promptPreview);
   const [characterId, setCharacterId] = useState(scene.defaultCharacterId ?? "__none");
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
+  const [deleteDialogVersionId, setDeleteDialogVersionId] = useState<string | null>(null);
 
   const hasUnsavedPrompt = prompt !== savedPromptBase;
   const storyLinkedCharacter = scene.availableCharacters.find(
@@ -186,11 +188,6 @@ export function FinalPageCard({
   }
 
   function deleteVersion(finalPageId: string) {
-    const confirmed = window.confirm(
-      "Delete this final page version? This removes the image from storage and database."
-    );
-    if (!confirmed) return;
-
     startDeleteTransition(async () => {
       const formData = new FormData();
       formData.set("storyId", scene.storyId);
@@ -200,6 +197,7 @@ export function FinalPageCard({
         toast.error(result.error);
         return;
       }
+      setDeleteDialogVersionId(null);
       toast.success("Version deleted");
       router.refresh();
     });
@@ -419,15 +417,49 @@ export function FinalPageCard({
                           >
                             {versionRow.isApproved ? "Unapprove" : "Approve"}
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteVersion(versionRow.id)}
-                            disabled={isApproving || isDeleting}
+                          <Dialog
+                            open={deleteDialogVersionId === versionRow.id}
+                            onOpenChange={(open) =>
+                              setDeleteDialogVersionId(open ? versionRow.id : null)
+                            }
                           >
-                            Delete
-                          </Button>
+                            <DialogTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={isApproving || isDeleting}
+                              >
+                                Delete
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Delete final page version</DialogTitle>
+                                <DialogDescription>
+                                  This permanently deletes the selected version image from storage
+                                  and removes it from version history.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => setDeleteDialogVersionId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  onClick={() => deleteVersion(versionRow.id)}
+                                  disabled={isDeleting}
+                                >
+                                  Delete version
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
                     ))}

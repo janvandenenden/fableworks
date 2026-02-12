@@ -10,7 +10,7 @@ import {
   extractImageUrl,
   getReplicateClient,
 } from "@/lib/replicate";
-import { copyFromTempUrl } from "@/lib/r2";
+import { copyFromTempUrl, deleteFromR2PublicUrl } from "@/lib/r2";
 import { buildStoryCoverPrompt } from "@/lib/prompts/cover";
 import {
   buildStoryboardCompositionPrompt,
@@ -51,6 +51,11 @@ const coverPromptDraftSchema = z.object({
 const coverFromRunSchema = z.object({
   storyId: z.string().uuid(),
   runArtifactId: z.string().uuid(),
+});
+const panelVersionSchema = z.object({
+  storyId: z.string().uuid(),
+  panelId: z.string().uuid(),
+  assetId: z.string().uuid(),
 });
 
 function newId(): string {
@@ -884,4 +889,130 @@ export async function updateStoryboardCompositionAction(
       error: error instanceof Error ? error.message : "Failed to update composition",
     };
   }
+}
+
+export async function setStoryboardPanelVersionAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = panelVersionSchema.parse({
+    storyId: formData.get("storyId"),
+    panelId: formData.get("panelId"),
+    assetId: formData.get("assetId"),
+  });
+
+  const panelRows = await db
+    .select()
+    .from(schema.storyboardPanels)
+    .where(eq(schema.storyboardPanels.id, payload.panelId))
+    .limit(1);
+  const panel = panelRows[0];
+  if (!panel) return { success: false, error: "Storyboard panel not found" };
+
+  const sceneRows = await db
+    .select()
+    .from(schema.storyScenes)
+    .where(eq(schema.storyScenes.id, panel.sceneId))
+    .limit(1);
+  const scene = sceneRows[0];
+  if (!scene || scene.storyId !== payload.storyId) {
+    return { success: false, error: "Panel does not belong to this story" };
+  }
+
+  const assetRows = await db
+    .select()
+    .from(schema.generatedAssets)
+    .where(eq(schema.generatedAssets.id, payload.assetId))
+    .limit(1);
+  const asset = assetRows[0];
+  if (!asset || asset.type !== "storyboard_panel" || asset.entityId !== payload.panelId) {
+    return { success: false, error: "Storyboard version not found" };
+  }
+
+  await db
+    .update(schema.storyboardPanels)
+    .set({
+      imageUrl: asset.storageUrl,
+      status: "generated",
+    })
+    .where(eq(schema.storyboardPanels.id, payload.panelId));
+
+  revalidatePath(`/admin/stories/${payload.storyId}/storyboard`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
+  return { success: true, data: { id: payload.panelId } };
+}
+
+export async function deleteStoryboardPanelVersionAction(
+  formData: FormData
+): Promise<ActionResult<{ id: string }>> {
+  const payload = panelVersionSchema.parse({
+    storyId: formData.get("storyId"),
+    panelId: formData.get("panelId"),
+    assetId: formData.get("assetId"),
+  });
+
+  const panelRows = await db
+    .select()
+    .from(schema.storyboardPanels)
+    .where(eq(schema.storyboardPanels.id, payload.panelId))
+    .limit(1);
+  const panel = panelRows[0];
+  if (!panel) return { success: false, error: "Storyboard panel not found" };
+
+  const sceneRows = await db
+    .select()
+    .from(schema.storyScenes)
+    .where(eq(schema.storyScenes.id, panel.sceneId))
+    .limit(1);
+  const scene = sceneRows[0];
+  if (!scene || scene.storyId !== payload.storyId) {
+    return { success: false, error: "Panel does not belong to this story" };
+  }
+
+  const assetRows = await db
+    .select()
+    .from(schema.generatedAssets)
+    .where(eq(schema.generatedAssets.id, payload.assetId))
+    .limit(1);
+  const asset = assetRows[0];
+  if (!asset || asset.type !== "storyboard_panel" || asset.entityId !== payload.panelId) {
+    return { success: false, error: "Storyboard version not found" };
+  }
+
+  try {
+    await deleteFromR2PublicUrl(asset.storageUrl);
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? `Failed to delete image from storage: ${error.message}`
+          : "Failed to delete image from storage",
+    };
+  }
+
+  await db
+    .delete(schema.generatedAssets)
+    .where(eq(schema.generatedAssets.id, payload.assetId));
+
+  if (panel.imageUrl === asset.storageUrl) {
+    const remainingAssets = await db
+      .select()
+      .from(schema.generatedAssets)
+      .where(eq(schema.generatedAssets.entityId, payload.panelId))
+      .orderBy(asc(schema.generatedAssets.createdAt));
+    const nextAsset = [...remainingAssets]
+      .reverse()
+      .find((candidate) => candidate.type === "storyboard_panel");
+    await db
+      .update(schema.storyboardPanels)
+      .set({
+        imageUrl: nextAsset?.storageUrl ?? null,
+        status: nextAsset ? "generated" : "composed",
+      })
+      .where(eq(schema.storyboardPanels.id, payload.panelId));
+  }
+
+  revalidatePath(`/admin/stories/${payload.storyId}/storyboard`);
+  revalidatePath(`/admin/stories/${payload.storyId}`);
+  return { success: true, data: { id: payload.panelId } };
 }

@@ -112,6 +112,39 @@ export default async function StoryboardPage({
 
   const panelBySceneId = new Map(panels.map((panel) => [panel.sceneId, panel]));
   const panelIds = panels.map((panel) => panel.id);
+  const panelAssets =
+    panelIds.length > 0
+      ? await db
+          .select({
+            id: schema.generatedAssets.id,
+            entityId: schema.generatedAssets.entityId,
+            storageUrl: schema.generatedAssets.storageUrl,
+            createdAt: schema.generatedAssets.createdAt,
+            type: schema.generatedAssets.type,
+          })
+          .from(schema.generatedAssets)
+          .where(inArray(schema.generatedAssets.entityId, panelIds))
+      : [];
+  const panelAssetVersionsByPanelId = new Map<
+    string,
+    Array<{
+      id: string;
+      storageUrl: string;
+      createdAt: Date | null;
+    }>
+  >();
+  for (const asset of panelAssets) {
+    if (asset.type !== "storyboard_panel") continue;
+    const current = panelAssetVersionsByPanelId.get(asset.entityId ?? "") ?? [];
+    current.push({
+      id: asset.id,
+      storageUrl: asset.storageUrl,
+      createdAt: asset.createdAt,
+    });
+    if (asset.entityId) {
+      panelAssetVersionsByPanelId.set(asset.entityId, current);
+    }
+  }
   const promptArtifacts =
     panelIds.length > 0
       ? await db
@@ -342,6 +375,16 @@ export default async function StoryboardPage({
       outlineReferenceUrl,
       aspectRatio: STORYBOARD_ASPECT_RATIO,
       runHistory,
+      versions: (panel ? panelAssetVersionsByPanelId.get(panel.id) ?? [] : [])
+        .slice()
+        .sort((a, b) => (toSafeTimestamp(b.createdAt) ?? 0) - (toSafeTimestamp(a.createdAt) ?? 0))
+        .map((version, index) => ({
+          id: version.id,
+          storageUrl: version.storageUrl,
+          label: `v${index + 1}`,
+          isActive: version.storageUrl === (panel?.imageUrl ?? null),
+          createdAt: toSafeIsoString(version.createdAt),
+        })),
     };
   });
 

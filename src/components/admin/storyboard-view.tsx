@@ -31,6 +31,13 @@ type StoryboardPanelData = {
     resultUrl: string | null;
     createdAt: string | null;
   }>;
+  versions: Array<{
+    id: string;
+    storageUrl: string;
+    label: string;
+    isActive: boolean;
+    createdAt: string | null;
+  }>;
 };
 
 export function StoryboardView({

@@ -7,6 +7,8 @@ const insertValues = vi.fn(async () => undefined);
 const updateWhere = vi.fn(async () => undefined);
 const updateSet = vi.fn(() => ({ where: updateWhere }));
 const update = vi.fn(() => ({ set: updateSet }));
+const deleteWhere = vi.fn(async () => undefined);
+const deleteFn = vi.fn(() => ({ where: deleteWhere }));
 
 function setRows(table: string, rows: unknown[]) {
   tableRows[table] = rows;
@@ -38,7 +40,7 @@ vi.mock("@/db", () => ({
     select,
     insert: vi.fn(() => ({ values: insertValues })),
     update,
-    delete: vi.fn(() => ({ where: vi.fn(async () => undefined) })),
+    delete: deleteFn,
   },
   schema: {
     stories: { __table: "stories", id: "id", status: "status" },
@@ -116,6 +118,7 @@ vi.mock("@/lib/replicate", () => ({
 
 vi.mock("@/lib/r2", () => ({
   copyFromTempUrl: vi.fn(async () => "https://r2.example/panel.png"),
+  deleteFromR2PublicUrl: vi.fn(async () => undefined),
 }));
 
 describe("storyboard actions", () => {
@@ -258,5 +261,56 @@ describe("storyboard actions", () => {
       output_format: "png",
       image: "https://example.com/outline.png",
     });
+  });
+
+  it("setStoryboardPanelVersionAction sets selected storyboard version as active", async () => {
+    setRows("storyboard_panels", [{ id: "panel-1", sceneId: "scene-1" }]);
+    setRows("story_scenes", [{ id: "scene-1", storyId: "story-1" }]);
+    setRows("generated_assets", [
+      {
+        id: "asset-1",
+        type: "storyboard_panel",
+        entityId: "panel-1",
+        storageUrl: "https://r2.example/panel-v2.png",
+      },
+    ]);
+
+    const { setStoryboardPanelVersionAction } = await import(
+      "@/app/admin/stories/[id]/storyboard/actions"
+    );
+    const formData = new FormData();
+    formData.set("storyId", "00000000-0000-4000-8000-000000000001");
+    formData.set("panelId", "00000000-0000-4000-8000-000000000002");
+    formData.set("assetId", "00000000-0000-4000-8000-000000000003");
+
+    setRows("storyboard_panels", [
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        sceneId: "scene-1",
+      },
+    ]);
+    setRows("story_scenes", [
+      {
+        id: "scene-1",
+        storyId: "00000000-0000-4000-8000-000000000001",
+      },
+    ]);
+    setRows("generated_assets", [
+      {
+        id: "00000000-0000-4000-8000-000000000003",
+        type: "storyboard_panel",
+        entityId: "00000000-0000-4000-8000-000000000002",
+        storageUrl: "https://r2.example/panel-v2.png",
+      },
+    ]);
+
+    const result = await setStoryboardPanelVersionAction(formData);
+    expect(result.success).toBe(true);
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageUrl: "https://r2.example/panel-v2.png",
+        status: "generated",
+      })
+    );
   });
 });

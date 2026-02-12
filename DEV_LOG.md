@@ -3,6 +3,21 @@
 ## 2026-02-12 -- Final pages: delete version support [in progress]
 
 ### Actions
+- Updated final-page delete UX to confirmation modal:
+  - `src/components/admin/final-page-card.tsx`
+  - delete now opens a confirm dialog (same pattern as story/character delete) before executing.
+- Added storyboard version-management support (view/use/delete):
+  - `src/app/admin/stories/[id]/storyboard/page.tsx`
+    - now loads panel image versions from `generated_assets` (`type = storyboard_panel`) and passes them to panel cards.
+  - `src/app/admin/stories/[id]/storyboard/actions.ts`
+    - `setStoryboardPanelVersionAction` sets a selected storyboard version as active for the panel.
+    - `deleteStoryboardPanelVersionAction` deletes selected version from R2 + DB and updates active panel image fallback.
+  - `src/components/admin/storyboard-panel.tsx`
+    - image tab now includes:
+      - versions list,
+      - `View` (preview specific version),
+      - `Use` (approve/activate version),
+      - `Delete` with confirmation modal.
 - Added R2 delete helper:
   - `src/lib/r2.ts`
   - new `deleteFromR2PublicUrl(publicUrl)` deletes objects by configured public URL prefix.
@@ -19,7 +34,7 @@
   - each version row now has a `Delete` button with confirmation prompt.
 
 ### Tests
-- `npm run test -- src/app/admin/stories/[id]/pages/__tests__/actions.test.ts src/components/admin/__tests__/final-page-card.test.tsx src/lib/__tests__/r2.test.ts` (pass)
+- `npm run test -- src/components/admin/__tests__/storyboard-panel.test.tsx src/app/admin/stories/[id]/storyboard/__tests__/actions.test.ts src/components/admin/__tests__/final-page-card.test.tsx src/app/admin/stories/[id]/pages/__tests__/actions.test.ts` (pass)
 - `npm run lint` (pass)
 
 ## 2026-02-12 -- Final pages UX: version-aware preview for approval

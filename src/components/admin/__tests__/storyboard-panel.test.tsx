@@ -39,6 +39,11 @@ vi.mock("@/app/admin/stories/[id]/storyboard/actions", () => ({
     data: { id: "p1" },
   })),
   updateStoryboardCompositionAction: vi.fn(async () => ({ success: true, data: { id: "p1" } })),
+  setStoryboardPanelVersionAction: vi.fn(async () => ({ success: true, data: { id: "p1" } })),
+  deleteStoryboardPanelVersionAction: vi.fn(async () => ({
+    success: true,
+    data: { id: "p1" },
+  })),
 }));
 
 describe("StoryboardPanel", () => {
@@ -68,6 +73,15 @@ describe("StoryboardPanel", () => {
           outlineReferenceUrl: "https://example.com/outline.png",
           aspectRatio: "4:3",
           runHistory: [],
+          versions: [
+            {
+              id: "asset-1",
+              storageUrl: "https://example.com/panel.png",
+              label: "v1",
+              isActive: true,
+              createdAt: "2026-02-12T10:00:00.000Z",
+            },
+          ],
         }}
       />
     );
@@ -104,6 +118,7 @@ describe("StoryboardPanel", () => {
           outlineReferenceUrl: "https://example.com/outline.png",
           aspectRatio: "4:3",
           runHistory: [],
+          versions: [],
         }}
       />
     );
