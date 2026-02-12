@@ -147,7 +147,7 @@ test("final pages UI supports bulk character selector and per-scene tabbed overr
     // Open request preview and verify both storyboard + character references are included.
     await sceneOneCard.getByRole("button", { name: "Full request preview" }).click();
     const dialog = page.getByRole("dialog", { name: "Full request preview" }).last();
-    await expect(dialog).toContainText('"image": [');
+    await expect(dialog).toContainText('"image_input": [');
     await expect(dialog).toContainText("https://example.com/e2e-storyboard.png");
     await expect(dialog).toContainText("https://example.com/e2e-char2.png");
   } finally {
