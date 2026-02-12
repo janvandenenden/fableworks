@@ -61,6 +61,10 @@ export default async function CustomerBookDetailPage({
       paymentStatus: schema.orders.paymentStatus,
       amountCents: schema.orders.amountCents,
       currency: schema.orders.currency,
+      shippingName: schema.orders.shippingName,
+      shippingEmail: schema.orders.shippingEmail,
+      shippingPhone: schema.orders.shippingPhone,
+      shippingAddressJson: schema.orders.shippingAddressJson,
       createdAt: schema.orders.createdAt,
     })
     .from(schema.orders)
@@ -123,6 +127,35 @@ export default async function CustomerBookDetailPage({
   const payment = toCustomerPaymentStatus(order.paymentStatus);
   const fulfillment = toCustomerFulfillmentStatus(book.printStatus);
   const storyTitle = story?.title?.trim() || "Untitled story";
+  const shippingAddress = (() => {
+    const raw = order.shippingAddressJson;
+    if (!raw) return null;
+    if (typeof raw === "string") {
+      try {
+        return JSON.parse(raw) as {
+          line1?: string;
+          line2?: string;
+          city?: string;
+          state?: string;
+          postal_code?: string;
+          country?: string;
+        };
+      } catch {
+        return null;
+      }
+    }
+    if (typeof raw === "object") {
+      return raw as {
+        line1?: string;
+        line2?: string;
+        city?: string;
+        state?: string;
+        postal_code?: string;
+        country?: string;
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="space-y-6">
@@ -193,6 +226,29 @@ export default async function CustomerBookDetailPage({
           <Button asChild variant="outline" size="sm">
             <Link href="/create/character">Create Another Book</Link>
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Shipping</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-sm text-muted-foreground">
+          <p>{order.shippingName || "Name not provided"}</p>
+          {shippingAddress ? (
+            <>
+              <p>{shippingAddress.line1 || ""}</p>
+              {shippingAddress.line2 ? <p>{shippingAddress.line2}</p> : null}
+              <p>
+                {shippingAddress.city || ""} {shippingAddress.state || ""} {shippingAddress.postal_code || ""}
+              </p>
+              <p>{shippingAddress.country || ""}</p>
+            </>
+          ) : (
+            <p>Shipping address will appear after checkout completion.</p>
+          )}
+          {order.shippingEmail ? <p>Email: {order.shippingEmail}</p> : null}
+          {order.shippingPhone ? <p>Phone: {order.shippingPhone}</p> : null}
         </CardContent>
       </Card>
 

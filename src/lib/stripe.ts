@@ -50,3 +50,15 @@ export function getCheckoutPriceConfig():
     productName,
   };
 }
+
+export function getShippingCountries(): string[] {
+  const raw = process.env.STRIPE_SHIPPING_COUNTRIES?.trim();
+  if (!raw) {
+    return ["US", "BE", "NL", "FR", "DE", "GB", "CA", "AU"];
+  }
+  const codes = raw
+    .split(",")
+    .map((item) => item.trim().toUpperCase())
+    .filter((item) => /^[A-Z]{2}$/.test(item));
+  return codes.length > 0 ? codes : ["US"];
+}

@@ -93,6 +93,26 @@ describe("stripe webhook route", () => {
           id: sessionId,
           payment_intent: "pi_test_123",
           metadata: { orderId: "order-1" },
+          customer_details: {
+            email: "buyer@example.com",
+            phone: "+123456789",
+            name: "Buyer Name",
+            address: {
+              line1: "Main St 1",
+              city: "Brussels",
+              postal_code: "1000",
+              country: "BE",
+            },
+          },
+          shipping_details: {
+            name: "Buyer Name",
+            address: {
+              line1: "Main St 1",
+              city: "Brussels",
+              postal_code: "1000",
+              country: "BE",
+            },
+          },
         },
       },
     });
@@ -119,6 +139,10 @@ describe("stripe webhook route", () => {
         paymentStatus: "paid",
         stripeCheckoutSessionId: sessionId,
         stripePaymentIntentId: "pi_test_123",
+        shippingName: "Buyer Name",
+        shippingEmail: "buyer@example.com",
+        shippingPhone: "+123456789",
+        shippingAddressJson: expect.stringContaining("Main St 1"),
       })
     );
     expect(insertValues).toHaveBeenCalledWith(

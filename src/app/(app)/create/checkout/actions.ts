@@ -2,9 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
+import Stripe from "stripe";
 import { z } from "zod";
 import { db, schema } from "@/db";
-import { getCheckoutPriceConfig, getStripeClient, getAppBaseUrl } from "@/lib/stripe";
+import {
+  getCheckoutPriceConfig,
+  getShippingCountries,
+  getStripeClient,
+  getAppBaseUrl,
+} from "@/lib/stripe";
 
 const checkoutPayloadSchema = z.object({
   storyId: z.string().uuid(),
@@ -159,9 +165,12 @@ export async function createCheckoutSessionAction(formData: FormData): Promise<v
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    success_url: `${appBaseUrl}/create/generating?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${appBaseUrl}/create/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: cancelUrl.toString(),
     line_items: lineItems,
+    shipping_address_collection: {
+      allowed_countries: getShippingCountries() as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
+    },
     metadata: {
       orderId,
       userId: normalizedUserId ?? "anonymous",

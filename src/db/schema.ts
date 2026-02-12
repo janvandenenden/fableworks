@@ -180,6 +180,10 @@ export const orders = sqliteTable("orders", {
   paymentStatus: text("payment_status").default("pending"),
   amountCents: integer("amount_cents"),
   currency: text("currency").default("usd"),
+  shippingName: text("shipping_name"),
+  shippingEmail: text("shipping_email"),
+  shippingPhone: text("shipping_phone"),
+  shippingAddressJson: text("shipping_address_json", { mode: "json" }),
   createdAt: timestamp("created_at"),
 });
 

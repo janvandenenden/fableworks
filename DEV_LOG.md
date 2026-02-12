@@ -1,5 +1,70 @@
 # Fableworks Development Log
 
+## 2026-02-12 -- Phase 8 implementation (slice 7: shipping at checkout + simplified customer statuses + milestone emails) [in progress]
+
+### Actions
+- Added shipping fields to order model:
+  - `src/db/schema.ts`
+  - new `orders` columns:
+    - `shipping_name`
+    - `shipping_email`
+    - `shipping_phone`
+    - `shipping_address_json`
+- Generated migration for shipping fields:
+  - `drizzle/0003_mature_devos.sql`
+  - `drizzle/meta/0003_snapshot.json`
+  - `drizzle/meta/_journal.json`
+- Enabled shipping collection in Stripe Checkout:
+  - `src/app/(app)/create/checkout/actions.ts`
+  - `shipping_address_collection` now required (configurable country list).
+  - `phone_number_collection.enabled = true`.
+  - added form coercion helper for robust server-action payload parsing.
+- Added shipping country config helper:
+  - `src/lib/stripe.ts`
+  - new `getShippingCountries()` reads `STRIPE_SHIPPING_COUNTRIES` or uses defaults.
+- Persisted shipping details from Stripe webhook:
+  - `src/app/api/webhooks/stripe/route.ts`
+  - on `checkout.session.completed` now stores name/email/phone/address on the related order.
+- Simplified customer-facing fulfillment labels:
+  - `src/lib/order-status.ts`
+  - reduced statuses to clean stages: `Processing`, `Printing`, `Shipped`, `Delivered`.
+- Added customer shipping display:
+  - `src/app/(app)/books/[id]/page.tsx`
+  - shipping card now shows captured address/contact details.
+- Added milestone email notification service:
+  - `src/lib/notifications.ts`
+  - sends emails via Resend when configured (`RESEND_API_KEY`, `EMAIL_FROM`):
+    - processing complete
+    - printing started
+    - shipped
+  - idempotent via `prompt_artifacts` reservation IDs (`email:<orderId>:<milestone>`).
+- Wired email milestones:
+  - `src/inngest/functions/process-paid-order.ts`
+    - sends `processing_complete` after successful print-file generation.
+  - `src/app/admin/books/actions.ts`
+    - sends printing/shipped notifications on print status transitions (`updateManualPrintAction`, `submitToLuluAction`, `refreshLuluStatusAction`).
+
+### Tests
+- `npm run lint` (pass)
+- `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts src/lib/__tests__/lulu.test.ts` (pass)
+
+### UX refinement follow-up
+- Reduced checkout friction:
+  - `src/app/(app)/create/checkout/actions.ts`
+  - removed mandatory Stripe phone collection (shipping address still required).
+- Added customer-friendly post-payment success screen:
+  - `src/app/(app)/create/success/page.tsx`
+  - checkout now redirects to `/create/success?session_id=...`.
+  - page confirms payment, mentions email updates, and points users to `/books` for tracking.
+  - includes session ownership gate before showing order-specific messaging.
+- Updated checkout success redirect:
+  - `src/app/(app)/create/checkout/actions.ts`
+  - `success_url` now targets `/create/success`.
+
+- Validation:
+  - `npm run lint` (pass)
+  - `npm run test -- src/lib/__tests__/stripe.test.ts src/app/api/webhooks/stripe/__tests__/route.test.ts src/lib/__tests__/order-status.test.ts` (pass)
+
 ## 2026-02-12 -- Phase 8 implementation (slice 6: paid-order orchestration trigger + timeline visibility) [in progress]
 
 ### Actions

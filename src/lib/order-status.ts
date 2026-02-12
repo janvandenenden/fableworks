@@ -46,27 +46,23 @@ export function toCustomerFulfillmentStatus(
 ): CustomerFulfillmentStatus {
   switch (printStatus) {
     case "pending_generation":
-      return {
-        label: "Preparing artwork",
-        detail: "We are preparing your final pages and print files.",
-        tone: "neutral",
-      };
     case "pdf_ready":
-      return {
-        label: "Files ready",
-        detail: "Your print-ready files are complete and queued for print.",
-        tone: "neutral",
-      };
+    case "draft":
     case "submitted":
+    case "submitted_api":
+    case "submitted_manual":
+    case "failed":
+    case "errored":
+    case "rejected":
       return {
-        label: "Submitted to print",
-        detail: "Your book has been submitted to the print partner.",
+        label: "Processing",
+        detail: "Your book is being prepared for print.",
         tone: "neutral",
       };
     case "in_production":
     case "production_delayed":
       return {
-        label: "In production",
+        label: "Printing",
         detail: "Your book is currently being printed.",
         tone: "neutral",
       };
@@ -76,13 +72,6 @@ export function toCustomerFulfillmentStatus(
         detail: "Your book is on the way.",
         tone: "success",
       };
-    case "rejected":
-    case "errored":
-      return {
-        label: "Needs attention",
-        detail: "There is an issue with fulfillment. We are reviewing it.",
-        tone: "danger",
-      };
     case "delivered":
       return {
         label: "Delivered",
@@ -91,7 +80,7 @@ export function toCustomerFulfillmentStatus(
       };
     default:
       return {
-        label: "Queued",
+        label: "Processing",
         detail: "Your order is in queue for fulfillment.",
         tone: "neutral",
       };

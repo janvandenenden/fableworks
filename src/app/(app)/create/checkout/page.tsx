@@ -98,7 +98,7 @@ export default async function CreateCheckoutPage({
       <div>
         <h1 className="text-3xl font-semibold">Checkout</h1>
         <p className="text-sm text-muted-foreground">
-          Pay first, then we trigger expensive page and print-file generation.
+          Enter shipping details in Stripe, pay, and we handle generation + print fulfillment.
         </p>
       </div>
 

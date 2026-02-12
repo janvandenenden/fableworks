@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { inngest } from "@/inngest/client";
 import { generatePrintFilesForStory } from "@/lib/book-generation";
+import { sendOrderMilestoneEmail } from "@/lib/notifications";
 
 const orderPaidSchema = z.object({
   orderId: z.string().uuid(),
@@ -106,6 +107,10 @@ export const processPaidOrder = inngest.createFunction(
             }),
           })
           .where(eq(schema.promptArtifacts.id, runId));
+        await sendOrderMilestoneEmail({
+          orderId: order.id,
+          milestone: "processing_complete",
+        });
 
         return {
           ok: true,

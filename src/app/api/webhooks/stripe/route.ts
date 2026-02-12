@@ -10,6 +10,28 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
+function readStringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function extractShippingPayload(session: Stripe.Checkout.Session): {
+  shippingName: string | null;
+  shippingEmail: string | null;
+  shippingPhone: string | null;
+  shippingAddressJson: string | null;
+} {
+  const customerDetails = session.customer_details;
+  const shippingDetails = session.shipping_details;
+  const address = shippingDetails?.address ?? customerDetails?.address ?? null;
+
+  return {
+    shippingName: readStringOrNull(shippingDetails?.name) ?? readStringOrNull(customerDetails?.name),
+    shippingEmail: readStringOrNull(customerDetails?.email) ?? readStringOrNull(session.customer_email),
+    shippingPhone: readStringOrNull(customerDetails?.phone),
+    shippingAddressJson: address ? JSON.stringify(address) : null,
+  };
+}
+
 function isUniqueConstraintError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return /unique constraint|primary key/i.test(error.message);
@@ -98,6 +120,7 @@ export async function POST(request: Request) {
 
       const order = orderRows[0];
       if (order) {
+        const shipping = extractShippingPayload(session);
         await db
           .update(schema.orders)
           .set({
@@ -105,6 +128,10 @@ export async function POST(request: Request) {
             stripeCheckoutSessionId: session.id,
             stripePaymentIntentId:
               typeof session.payment_intent === "string" ? session.payment_intent : null,
+            shippingName: shipping.shippingName,
+            shippingEmail: shipping.shippingEmail,
+            shippingPhone: shipping.shippingPhone,
+            shippingAddressJson: shipping.shippingAddressJson,
           })
           .where(eq(schema.orders.id, order.id));
 

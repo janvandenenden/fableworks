@@ -24,7 +24,7 @@ describe("order-status", () => {
     expect(shipped.tone).toBe("success");
 
     const pending = toCustomerFulfillmentStatus("pending_generation");
-    expect(pending.label).toBe("Preparing artwork");
+    expect(pending.label).toBe("Processing");
     expect(pending.tone).toBe("neutral");
   });
 

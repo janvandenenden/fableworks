@@ -18,6 +18,7 @@ import {
   normalizeManualPrintStatus,
   type ManualPrintStatus,
 } from "@/lib/lulu";
+import { sendPrintStatusMilestoneIfNeeded } from "@/lib/notifications";
 
 type ActionResult<T = null> =
   | { success: true; data: T }
@@ -421,6 +422,15 @@ export async function updateManualPrintAction(formData: FormData): Promise<Actio
     const luluPrintJobId = parsed.data.luluPrintJobId?.trim() || null;
     const trackingUrl = parsed.data.trackingUrl?.trim() || null;
     const status: ManualPrintStatus = normalizeManualPrintStatus(parsed.data.printStatus);
+    const currentBookRows = await db
+      .select({
+        orderId: schema.books.orderId,
+        printStatus: schema.books.printStatus,
+      })
+      .from(schema.books)
+      .where(eq(schema.books.id, bookId))
+      .limit(1);
+    const currentBook = currentBookRows[0];
 
     await db
       .update(schema.books)
@@ -431,6 +441,14 @@ export async function updateManualPrintAction(formData: FormData): Promise<Actio
         updatedAt: new Date(),
       })
       .where(eq(schema.books.id, bookId));
+    if (currentBook?.orderId) {
+      await sendPrintStatusMilestoneIfNeeded({
+        orderId: currentBook.orderId,
+        previousStatus: currentBook.printStatus,
+        nextStatus: status,
+        trackingUrl,
+      });
+    }
 
     const storyRows = await db
       .select({ storyId: schema.orders.storyId })
@@ -486,6 +504,8 @@ export async function submitToLuluAction(formData: FormData): Promise<ActionResu
         id: schema.books.id,
         pdfUrl: schema.books.pdfUrl,
         orderId: schema.books.orderId,
+        printStatus: schema.books.printStatus,
+        trackingUrl: schema.books.trackingUrl,
       })
       .from(schema.books)
       .where(eq(schema.books.id, parsed.data.bookId))
@@ -554,6 +574,14 @@ export async function submitToLuluAction(formData: FormData): Promise<ActionResu
         updatedAt: new Date(),
       })
       .where(eq(schema.books.id, book.id));
+    if (book.orderId) {
+      await sendPrintStatusMilestoneIfNeeded({
+        orderId: book.orderId,
+        previousStatus: book.printStatus,
+        nextStatus: mapLuluStatusToInternal(luluJob.status),
+        trackingUrl: luluJob.trackingUrl,
+      });
+    }
 
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${orderStory.storyId}`);
@@ -598,6 +626,8 @@ export async function refreshLuluStatusAction(formData: FormData): Promise<Actio
         id: schema.books.id,
         luluPrintJobId: schema.books.luluPrintJobId,
         orderId: schema.books.orderId,
+        printStatus: schema.books.printStatus,
+        trackingUrl: schema.books.trackingUrl,
       })
       .from(schema.books)
       .where(eq(schema.books.id, parsed.data.bookId))
@@ -625,6 +655,14 @@ export async function refreshLuluStatusAction(formData: FormData): Promise<Actio
         updatedAt: new Date(),
       })
       .where(eq(schema.books.id, book.id));
+    if (book.orderId) {
+      await sendPrintStatusMilestoneIfNeeded({
+        orderId: book.orderId,
+        previousStatus: book.printStatus,
+        nextStatus: mappedStatus,
+        trackingUrl: luluJob.trackingUrl,
+      });
+    }
 
     const storyRows = book.orderId
       ? await db
